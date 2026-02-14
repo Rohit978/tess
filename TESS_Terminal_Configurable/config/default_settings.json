@@ -1,0 +1,40 @@
+{
+  "llm": {
+    "provider": "groq",
+    "model": "llama-3.3-70b-versatile",
+    "api_keys": {},
+    "temperature": 0.1,
+    "max_tokens": 2048
+  },
+  "security": {
+    "level": "MEDIUM",
+    "safe_mode": true,
+    "confirm_dangerous": true,
+    "blocked_commands": [
+      "rm -rf",
+      "del /s",
+      "format",
+      "rd /s",
+      "rmdir /s",
+      "shutdown",
+      "taskkill",
+      "reg delete"
+    ]
+  },
+  "features": {
+    "voice_input": false,
+    "web_search": true,
+    "telegram_bot": false,
+    "auto_update": false
+  },
+  "paths": {
+    "memory_dir": "~/.tess/memory",
+    "logs_dir": "~/.tess/logs",
+    "skills_dir": "~/.tess/skills",
+    "temp_dir": "~/.tess/temp"
+  },
+  "telegram_token": "",
+  "telegram_user_id": "",
+  "first_run": true,
+  "version": "1.0.0"
+}
