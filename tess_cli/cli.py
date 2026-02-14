@@ -1,48 +1,29 @@
 import sys
 import os
 import warnings
+import time
+import threading
 
 # Suppress annoying warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
 warnings.filterwarnings("ignore", message=".*google.generativeai.*")
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*Python version.*")
 
-print("\r[TESS] Powering up systems...", end="", flush=True)
-import time
-time.sleep(0.1)
+# Lazy Imports handled in main() to prevent startup crashes (e.g. ChromaDB/Pydantic issues)
 
-# Add paths
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+def setup_logger_local(name):
+    # Minimal logger setup if core logger fails
+    import logging
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    return logger
 
-from .core.profile_manager import ProfileManager
-from .core.orchestrator import process_action
-from .core.logger import setup_logger
-import threading
-
-# Components
-from .core.executor import Executor
-from .core.config import Config
-from .core.app_launcher import AppLauncher
-from .core.browser_controller import BrowserController
-from .core.system_controller import SystemController
-from .core.file_manager import FileManager
-from .core.knowledge_base import KnowledgeBase
-from .core.planner import Planner
-from .core.web_browser import WebBrowser
-from .core.task_registry import TaskRegistry
-from .core.whatsapp_client import WhatsAppClient
-from .core.youtube_client import YouTubeClient
-from .core.voice_client import VoiceClient
-from .core.organizer import Organizer
-from .core.google_client import GoogleClient
-from .core.architect import Architect
-from .core.security import SecurityEngine
-from .core.command_indexer import CommandIndexer
-from .core.librarian import Librarian
-from .core.scheduler import TessScheduler
-from .skills.sysadmin import SysAdminSkill
-
-logger = setup_logger("Main")
+logger = setup_logger_local("Main")
 
 def start_telegram_bot(profiles, components):
     """Runs the Telegram Bot in a separate thread."""
@@ -59,7 +40,7 @@ def start_telegram_bot(profiles, components):
             file_mgr=valid_comps.get('file_mgr'),
             knowledge_db=valid_comps.get('knowledge_db'),
             planner=valid_comps.get('planner'),
-            web_browser=valid_comps.get('web_search'), # Key mismatch fix
+            web_browser=valid_comps.get('web_search'),
             task_registry=valid_comps.get('task_registry'),
             whatsapp_client=valid_comps.get('whatsapp'),
             youtube_client=valid_comps.get('youtube_client'),
@@ -70,16 +51,64 @@ def start_telegram_bot(profiles, components):
         logger.error(f"Telegram Bot failed: {e}")
 
 def main():
-    # 0. Check for Setup/Init
+    # 0. Check for Setup/Init (FAST EXIT)
     if len(sys.argv) > 1 and sys.argv[1].lower() == "init":
-        from .core.setup_wizard import SetupWizard
-        SetupWizard().run()
+        try:
+            from .core.setup_wizard import SetupWizard
+            SetupWizard().run()
+        except ImportError as e:
+            print(f"[ERROR] Could not load Setup Wizard: {e}")
+            print("Ensure dependencies are installed: pip install -r requirements.txt")
         return
 
     print("--------------------------------------------------")
     print("  TESS TERMINAL PRO - HYBRID AGENT (v5.0)")
     print("--------------------------------------------------")
-    
+    print("\r[TESS] Powering up systems...", end="", flush=True)
+    time.sleep(0.1)
+
+    # Add paths
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+    # 1. Lazy Import Core Components
+    try:
+        from .core.profile_manager import ProfileManager
+        from .core.orchestrator import process_action
+        from .core.logger import setup_logger
+        
+        # Re-setup logger with proper config
+        global logger
+        logger = setup_logger("Main")
+
+        from .core.executor import Executor
+        from .core.config import Config
+        from .core.app_launcher import AppLauncher
+        from .core.browser_controller import BrowserController
+        from .core.system_controller import SystemController
+        from .core.file_manager import FileManager
+        from .core.knowledge_base import KnowledgeBase
+        from .core.planner import Planner
+        from .core.web_browser import WebBrowser
+        from .core.task_registry import TaskRegistry
+        from .core.whatsapp_client import WhatsAppClient
+        from .core.youtube_client import YouTubeClient
+        from .core.voice_client import VoiceClient
+        from .core.organizer import Organizer
+        from .core.google_client import GoogleClient
+        from .core.architect import Architect
+        from .core.security import SecurityEngine
+        from .core.command_indexer import CommandIndexer
+        from .core.librarian import Librarian
+        from .core.scheduler import TessScheduler
+        from .skills.sysadmin import SysAdminSkill
+        
+    except Exception as e:
+        print(f"\n\n[CRITICAL ERROR] Failed to import core modules: {e}")
+        print("Tip: Run 'tess init' to verify configuration or check 'pip install -r requirements.txt'")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
     # Init Core
     knowledge_db = KnowledgeBase() if Config.is_module_enabled("memory") else None
     profiles = ProfileManager(knowledge_db=knowledge_db)
@@ -156,8 +185,8 @@ def main():
          comps['google_client'] = None
 
     # Librarian
-    if Config._data["integrations"]["librarian"]["enabled"]:
-        watch_path = Config._data["integrations"]["librarian"]["watch_path"]
+    if Config._data.get("integrations", {}).get("librarian", {}).get("enabled", False):
+        watch_path = Config._data["integrations"]["librarian"].get("watch_path", ".")
         if watch_path == ".": watch_path = os.getcwd()
         
         librarian = Librarian(knowledge_db, watch_path=watch_path)
@@ -171,7 +200,7 @@ def main():
     tess_scheduler.start()
     
     # Telegram
-    if Config._data["integrations"]["telegram"]["enabled"] and Config.TELEGRAM_BOT_TOKEN:
+    if Config.TELEGRAM_BOT_TOKEN and Config._data.get("integrations", {}).get("telegram", {}).get("enabled", False):
         print("🤖 Starting Telegram...")
         threading.Thread(target=start_telegram_bot, args=(profiles, comps), daemon=True).start()
 
