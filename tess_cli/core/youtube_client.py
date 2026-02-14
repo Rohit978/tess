@@ -69,20 +69,26 @@ class YouTubeClient:
             search_input.fill(query)
             search_input.press("Enter")
             
-            time.sleep(3) # Wait for page load
-            
+            # Wait for results to load
+            logger.info("Waiting for search results...")
+            try:
+                self.page.wait_for_selector('ytd-video-renderer', timeout=15000)
+            except Exception as e:
+                logger.error(f"Search results didn't load: {e}")
+                return f"No results for '{query}'"
+
             # Click first video result
             # We want the first 'ytd-video-renderer' which is a real video results
-            # Avoid 'ytd-shelf-renderer' (shorts shelf) or ads if possible.
             video_title = self.page.locator("ytd-video-renderer #video-title").first
             
             # Wait for it to be visible
             video_title.wait_for(state="visible", timeout=10000)
             
             if video_title.count() > 0:
-                title_text = video_title.inner_text()
+                title_text = video_title.inner_text().strip()
                 logger.info(f"Playing: {title_text}")
                 video_title.click()
+
             else:
                 logger.warning("No video results found.")
                 return "No video results found."

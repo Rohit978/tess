@@ -16,6 +16,33 @@ class WhatsAppClient:
         os.makedirs(self.screenshot_dir, exist_ok=True)
         self.msg_queue = queue.Queue() # Queue for main thread to talk to browser thread
         self.active_contact = None
+        self.stop_event = threading.Event()
+        self.monitor_thread = None
+
+    def monitor_chat(self, contact_name, mission=None):
+        """Starts the WhatsApp monitor in a background thread."""
+        if self.monitor_thread and self.monitor_thread.is_alive():
+            logger.info(f"Monitor already running. Switching focus to {contact_name}")
+            self.active_contact = contact_name
+            # In a real implementation, we might need to send a signal to the loop to switch chats
+            return
+
+        self.stop_event.clear()
+        self.monitor_thread = threading.Thread(
+            target=self.monitor_loop, 
+            args=(self.stop_event, contact_name, mission),
+            daemon=True
+        )
+        self.monitor_thread.start()
+        logger.info(f"WhatsApp Monitor thread started for {contact_name}")
+
+    def stop(self):
+        """Stops the monitor loop."""
+        self.stop_event.set()
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=5)
+        logger.info("WhatsApp Monitor Stopped.")
+
         
     def send_message(self, contact, message):
         """Queue a message for a specific contact."""

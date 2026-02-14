@@ -186,3 +186,31 @@ class Brain:
                 return client.generate_content(prompt).text
         except:
             return "Thinking failed."
+
+    def request_completion(self, messages, json_mode=False, temperature=0.7):
+        """
+        Versatile completion request for non-standard flows (like WhatsApp).
+        """
+        client, _ = self._get_client(self.provider)
+        if not client: return None
+        
+        try:
+            if self.provider in ["groq", "openai", "deepseek"]:
+                args = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature
+                }
+                if json_mode:
+                    args["response_format"] = {"type": "json_object"}
+                
+                completion = client.chat.completions.create(**args)
+                return completion.choices[0].message.content
+            elif self.provider == "gemini":
+                prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+                resp = client.generate_content(prompt)
+                return resp.text
+        except Exception as e:
+            logger.error(f"Request Completion Failed: {e}")
+            return None
+
