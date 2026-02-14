@@ -153,14 +153,14 @@ def main():
 
     # Web Search
     if WebBrowser and (Config.is_module_enabled("web_search") or Config.is_module_enabled("web_scraping")):
-        comps['web_search'] = WebBrowser(headless=True)
+        comps['web_search'] = WebBrowser()
     else:
         comps['web_search'] = None
 
     # WhatsApp
     if WhatsAppClient and Config.is_module_enabled("whatsapp"):
         vc = VoiceClient(model_size="base") if VoiceClient else None
-        comps['whatsapp'] = WhatsAppClient(brain, voice_client=vc, headless=False)
+        comps['whatsapp'] = WhatsAppClient(brain, voice_client=vc)
     else:
         comps['whatsapp'] = None
 
