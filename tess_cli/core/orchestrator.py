@@ -138,14 +138,43 @@ def process_action(action_data: dict, components: dict, brain):
     elif action == "gmail_op":
         if not components.get('google_client'): return out("Google Integration is disabled.")
         pass
-
-    # 12. ARCHITECT (Coding)
-    elif action == "code_op":
-        if not components.get('architect'): return out("Architect (Coding) module is disabled.")
         pass
+
+    # 12. AUTONOMOUS CODING (The Architect)
+    elif action == "code_op":
+        engine = components.get('coding_engine')
+        if not engine: return out("Coding Engine is disabled.")
+        
+        sub = action_data.get("sub_action")
+        if sub == "scaffold":
+            res = engine.scaffold_project(action_data.get("project_type"), action_data.get("path"))
+            out(res)
+        elif sub == "write":
+            res = engine.write_file(action_data.get("filename"), action_data.get("content"))
+            out(res)
+        elif sub == "execute":
+            res = engine.execute(action_data.get("filename"))
+            print(f"\n  {C.BRIGHT_MAGENTA}🚀 Execution Output:{C.R}")
+            print(f"  {C.DIM}{res}{C.R}\n")
+            brain.update_history("system", f"Code Output: {res}")
+        elif sub == "test":
+            res = engine.test_project(action_data.get("filename"))
+            print(f"\n  {C.BRIGHT_YELLOW}🧪 Test Results:{C.R}")
+            print(f"  {C.DIM}{res}{C.R}\n")
+            brain.update_history("system", f"Test Output: {res}")
+        elif sub == "fix":
+            res = engine.fix_code(action_data.get("filename"), action_data.get("error_log"))
+            out(res)
+        elif sub == "analyze" or sub == "summarize":
+            res = engine.analyze_workspace(action_data.get("path", "."))
+            print(f"\n  {C.BRIGHT_BLUE}📊 Workspace Analysis:{C.R}")
+            print(f"  {C.WHITE}{res}{C.R}\n")
+            brain.update_history("system", f"Analysis: {res}")
+
 
     # 13. ERROR / UNKNOWN
     elif action == "error":
+
         print_error(f"AI Error: {action_data.get('reason')}")
 
     else:

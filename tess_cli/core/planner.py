@@ -39,21 +39,24 @@ class Planner:
         
         Your job is to break this goal into a sequence of ATOMIC actions.
         Available Actions:
-        1. file_op (write, read, list, patch)
-        2. execute_command (run commands)
-        3. browser_control (open urls, new tab)
-        4. knowledge_op (learn, search)
+        1. code_op (scaffold, write, execute, test, fix, analyze, summarize)
+        2. file_op (write, read, list, patch)
+        3. execute_command (run commands)
+        4. browser_control (open urls, new tab)
+        5. knowledge_op (learn, search)
         
         Return a strict JSON object with a "plan" key containing a list of actions.
         The actions must match the TESS JSON schema exactly.
         
-        EXAMPLE: "Create a hello.py and run it"
+        EXAMPLE: "Build a python weather app"
         {{
             "plan": [
-                {{ "action": "file_op", "sub_action": "write", "path": "hello.py", "content": "print('Hello')", "reason": "Creating python script" }},
-                {{ "action": "execute_command", "command": "python hello.py", "reason": "Running script" }}
+                {{ "action": "code_op", "sub_action": "scaffold", "project_type": "python", "path": "weather_app", "reason": "Creating project structure" }},
+                {{ "action": "code_op", "sub_action": "write", "filename": "weather_app/src/main.py", "content": "print('Weather info')", "reason": "Writing entry point" }},
+                {{ "action": "code_op", "sub_action": "test", "filename": "weather_app/src/main.py", "reason": "Testing core logic" }}
             ]
         }}
+
         """
         
         try:

@@ -147,7 +147,7 @@ def boot_sequence(comps, config_data):
         ("WhatsApp", 'whatsapp'),
         ("Voice Client", 'voice_client'),
         ("Organizer", 'organizer'),
-        ("Architect", 'architect'),
+        ("Coding Engine", 'coding_engine'),
         ("Google Services", 'google_client'),
     ]
     
@@ -232,6 +232,27 @@ def print_greeting(greeting, extras=""):
     print(f"\n  {C.BRIGHT_WHITE}{C.BOLD}{greeting}{C.R}")
     if extras:
         print(f"  {C.DIM}{extras}{C.R}")
+
+
+def print_stats_dashboard(stats):
+    """Print user engagement statistics."""
+    w = 40
+    print(f"\n  {C.BRIGHT_MAGENTA}┏{'━' * (w-2)}┓{C.R}")
+    print(f"  {C.BRIGHT_MAGENTA}┃{C.R} {C.BOLD}SESSION STATS{C.R} {' ' * (w-17)} {C.BRIGHT_MAGENTA}┃{C.R}")
+    print(f"  {C.BRIGHT_MAGENTA}┠{'─' * (w-2)}┨{C.R}")
+    
+    lines = [
+        (f"Sessions", f"{stats['sessions']}"),
+        (f"Commands", f"{stats['commands']}"),
+        (f"Streak", f"{stats['streak']} days 🔥"),
+        (f"Best", f"{stats['best_streak']} days")
+    ]
+    
+    for label, val in lines:
+        padding = w - len(label) - len(val) - 4
+        print(f"  {C.BRIGHT_MAGENTA}┃{C.R} {C.CYAN}{label}:{C.R}{' ' * padding}{C.WHITE}{val}{C.R} {C.BRIGHT_MAGENTA}┃{C.R}")
+    
+    print(f"  {C.BRIGHT_MAGENTA}┗{'━' * (w-2)}┛{C.R}")
 
 
 def print_goodbye(name=None):

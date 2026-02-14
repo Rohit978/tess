@@ -100,9 +100,13 @@ class CalendarAction(BaseAction):
 # 16. Coder Operations (The Architect)
 class CoderAction(BaseAction):
     action: Literal["code_op"]
-    sub_action: Literal["write", "execute"]
-    filename: str
+    sub_action: Literal["scaffold", "write", "execute", "test", "fix", "analyze", "summarize"]
+    filename: Optional[str] = None
+    path: Optional[str] = None
     content: Optional[str] = None
+    project_type: Optional[Literal["python", "web", "node"]] = None
+    error_log: Optional[str] = None
+    goal: Optional[str] = None
 
 # 17. Gmail Operations
 class GmailAction(BaseAction):

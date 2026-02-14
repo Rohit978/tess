@@ -160,7 +160,16 @@ class UserProfile:
                         self.data["interests"].append(fact)
                         self.save()
 
+        # Personality detection
+        pers_match = re.search(r"(?:be more|stay|set personality to)\s+(casual|professional|witty|motivational)", text, re.IGNORECASE)
+        if pers_match:
+            style = pers_match.group(1).lower()
+            self.data["preferences"]["personality"] = style
+            self.save()
+            learned.append(f"Personality set to: {style.title()}")
+
         # "Remember that..." explicit memory
+
         remember_match = re.search(r"remember (?:that |this:?\s*)(.+)", text, re.IGNORECASE)
         if remember_match:
             fact = remember_match.group(1).strip()
@@ -235,8 +244,19 @@ class UserProfile:
             self.data["stats"]["feature_usage"] = usage
         self.save()
 
+    def get_stats_summary(self):
+        """Returns a concise summary of user stats."""
+        stats = self.data["stats"]
+        return {
+            "sessions": stats["total_sessions"],
+            "commands": stats["total_commands"],
+            "streak": stats["current_streak"],
+            "best_streak": stats["best_streak"]
+        }
+
     @property
     def name(self):
+
         return self.data.get("name")
 
     @property

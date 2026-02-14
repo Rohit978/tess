@@ -57,7 +57,7 @@ def main():
         boot_sequence, print_provider_info, print_ready, get_prompt,
         print_thinking, clear_thinking, print_tess_message, print_tess_action,
         print_error, print_security_block, print_warning, print_success,
-        print_info, print_goodbye, print_help, print_greeting, print_fact_learned
+        print_info, print_goodbye, print_help, print_greeting, print_fact_learned, print_stats_dashboard
     )
     from .core.user_profile import UserProfile
 
@@ -118,14 +118,19 @@ def main():
     VoiceClient = safe_import("tess_cli.core.voice_client", "VoiceClient")
     Organizer = safe_import("tess_cli.core.organizer", "Organizer")
     GoogleClient = safe_import("tess_cli.core.google_client", "GoogleClient")
-    Architect = safe_import("tess_cli.core.architect", "Architect")
+    CodingEngine = safe_import("tess_cli.core.coding_engine", "CodingEngine")
     CommandIndexer = safe_import("tess_cli.core.command_indexer", "CommandIndexer")
     Librarian = safe_import("tess_cli.core.librarian", "Librarian")
     TessScheduler = safe_import("tess_cli.core.scheduler", "TessScheduler")
     SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
     print()
 
+
+    # ─── User Profile ───
+    user_profile = UserProfile()
+    
     # Init Core
+
     knowledge_db = KnowledgeBase() if KnowledgeBase and Config.is_module_enabled("memory") else None
     profiles = ProfileManager(knowledge_db=knowledge_db)
     
@@ -133,6 +138,9 @@ def main():
     security = SecurityEngine(level=Config.get_security_level())
     
     brain = profiles.get_brain("terminal_user")
+    # Update brain personality from profile
+    brain.personality = user_profile.personality
+    brain.history[0]["content"] = Config.get_system_prompt(user_profile.personality)
     
     # Initialize Components with Toggles
     comps = {}
@@ -151,6 +159,7 @@ def main():
     
     # Conditional Modules
     comps['knowledge_db'] = knowledge_db
+    comps['coding_engine'] = CodingEngine(brain) if CodingEngine else None
     
     # Planner
     if Planner and Config.is_module_enabled("planner"):
@@ -186,11 +195,7 @@ def main():
     else:
         comps['organizer'] = None
 
-    # Code Gen
-    if Architect and Config.is_module_enabled("code_generation"):
-        comps['architect'] = Architect()
-    else:
-        comps['architect'] = None
+
         
     # Google (Gmail/Cal)
     if GoogleClient and (Config.is_module_enabled("gmail") or Config.is_module_enabled("calendar")):
@@ -219,12 +224,12 @@ def main():
         threading.Thread(target=start_telegram_bot, args=(profiles, comps), daemon=True).start()
 
     # ─── User Profile ───
-    user_profile = UserProfile()
     comps['user_profile'] = user_profile
 
     # ─── Boot Dashboard ───
     boot_sequence(comps, Config._data)
     print_provider_info(Config.LLM_PROVIDER, Config.LLM_MODEL)
+    print_stats_dashboard(user_profile.get_stats_summary())
 
     # ─── Personal Greeting ───
     greeting, extras = user_profile.get_greeting()

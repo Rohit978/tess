@@ -22,9 +22,10 @@ class Brain:
     Supports: Groq, OpenAI, DeepSeek, Gemini.
     """
     
-    def __init__(self, user_id="default", knowledge_db=None):
+    def __init__(self, user_id="default", knowledge_db=None, personality="casual"):
         self.user_id = str(user_id)
-        self.history = [{"role": "system", "content": Config.SYSTEM_PROMPT}]
+        self.personality = personality
+        self.history = [{"role": "system", "content": Config.get_system_prompt(personality)}]
         
         # Initialize Memory components
         self.memory = MemoryEngine(user_id=self.user_id)
@@ -58,7 +59,12 @@ class Brain:
             return None, str(e)
         return None, "Unknown Provider"
 
+    def update_history(self, role, content):
+        """Append a message to the conversation history."""
+        self.history.append({"role": role, "content": content})
+
     def generate_command(self, user_query):
+
         """
         Generates a JSON command from user input.
         """
@@ -131,8 +137,16 @@ class Brain:
         # Prepare Messages (Inject context)
         messages = list(self.history)
         if self._current_context:
-            # Inject context into the *last* user message or as a system message
-            messages[-1]["content"] += f"\n\n{self._current_context}"
+            # Wrap context in clear delimiters to prevent leakage/hallucination
+            context_block = (
+                "\n\n[SEARCH_CONTEXT_START]"
+                "\nBelow is relevant information from your memory/documents. "
+                "Use it only if helpful. Do NOT copy the source paths into your JSON output."
+                f"\n{self._current_context}"
+                "\n[SEARCH_CONTEXT_END]\n\n"
+            )
+            messages[-1]["content"] += context_block
+
 
         try:
             response_text = ""
@@ -166,11 +180,22 @@ class Brain:
                 return {"action": "reply_op", "content": f"JSON Error: {clean}"}
 
         except Exception as e:
+            err_msg = str(e).lower()
             logger.error(f"LLM Call Failed ({self.provider}): {e}")
-            # Rotation logic?
-            # Config.get_api_key() returns random, so next call *might* use different key.
-            # But we can force provider switch on specific errors.
+            
+            # If 401 (Invalid Key), switch provider immediately to save retries
+            if "401" in err_msg or "invalid api key" in err_msg:
+                if self.provider == "groq":
+                    logger.warning("Groq key invalid. Failing over to DeepSeek.")
+                    self.provider = "deepseek"
+                    self.model = "deepseek-coder"
+                elif self.provider == "deepseek":
+                    logger.warning("DeepSeek key invalid. Failing over to Gemini.")
+                    self.provider = "gemini"
+                    self.model = "gemini-1.5-flash"
+            
             return self._execute_llm_request(retry_count + 1)
+
 
     def think(self, prompt):
         """Simple text-to-text for subtasks."""
