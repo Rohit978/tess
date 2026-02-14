@@ -1,31 +1,49 @@
 import os
-import chromadb
-from chromadb.utils import embedding_functions
-from .logger import setup_logger
 
-logger = setup_logger("KnowledgeBase")
+# Graceful ChromaDB import — fails on Python 3.14 due to Pydantic V1 incompatibility
+try:
+    import chromadb
+    from chromadb.utils import embedding_functions
+    CHROMADB_AVAILABLE = True
+except Exception:
+    CHROMADB_AVAILABLE = False
+
+try:
+    from .logger import setup_logger
+    logger = setup_logger("KnowledgeBase")
+except Exception:
+    import logging
+    logger = logging.getLogger("KnowledgeBase")
+
 
 class KnowledgeBase:
     """
     Manages long-term memory using ChromaDB.
+    Gracefully degrades if ChromaDB is unavailable (e.g. Python 3.14).
     """
     
     def __init__(self, db_path="vector_db"):
-        self.client = chromadb.PersistentClient(path=db_path)
+        self.available = CHROMADB_AVAILABLE
+        self.collection = None
+        self.embedding_fn = None
         
-        # Use simple default embedding function (all-MiniLM-L6-v2) logic handled by chroma or explicit
-        # For simplicity, we stick to default for now which downloads a small model
-        self.embedding_fn = embedding_functions.DefaultEmbeddingFunction()
+        if not self.available:
+            logger.warning("ChromaDB unavailable — memory features disabled. (Python 3.14 + Pydantic V1 conflict)")
+            return
         
-        self.collection = self.client.get_or_create_collection(
-            name="tess_knowledge",
-            embedding_function=self.embedding_fn
-        )
+        try:
+            self.client = chromadb.PersistentClient(path=db_path)
+            self.embedding_fn = embedding_functions.DefaultEmbeddingFunction()
+            self.collection = self.client.get_or_create_collection(
+                name="tess_knowledge",
+                embedding_function=self.embedding_fn
+            )
+        except Exception as e:
+            logger.error(f"ChromaDB init failed: {e}")
+            self.available = False
         
     def _chunk_text(self, text, max_chars=1000, overlap=100):
-        """
-        Splits text into chunks of max_chars with overlap.
-        """
+        """Splits text into chunks of max_chars with overlap."""
         chunks = []
         start = 0
         text_len = len(text)
@@ -34,16 +52,15 @@ class KnowledgeBase:
             end = start + max_chars
             chunk = text[start:end]
             chunks.append(chunk)
-            
-            # Move start forward, but backtrack by overlap
             start += max_chars - overlap
             
         return chunks
 
     def learn_directory(self, path="."):
-        """
-        Recursively reads and indexes text files in the directory.
-        """
+        """Recursively reads and indexes text files in the directory."""
+        if not self.available:
+            return "Memory disabled (ChromaDB unavailable)."
+            
         path = os.path.abspath(path)
         if not os.path.exists(path):
             return f"Error: Path {path} not found."
@@ -68,7 +85,6 @@ class KnowledgeBase:
                         if not content.strip():
                             continue
                             
-                        # Chunking strategy: Properly recursive
                         chunks = self._chunk_text(content, max_chars=1500, overlap=150)
                         
                         ids = [f"{file_path}_{i}" for i in range(len(chunks))]
@@ -88,16 +104,16 @@ class KnowledgeBase:
         return f"Successfully indexed {count} files in '{path}'."
 
     def search(self, query, n_results=3):
-        """
-        Semantic search for the query.
-        """
+        """Semantic search for the query."""
+        if not self.available:
+            return "Memory search unavailable."
+            
         try:
             results = self.collection.query(
                 query_texts=[query],
                 n_results=n_results
             )
             
-            # Formatting results
             output = ""
             if not results['documents']:
                 return "No matching knowledge found."
@@ -113,15 +129,12 @@ class KnowledgeBase:
             return f"Error searching knowledge base: {e}"
 
     def get_stats(self):
-        """
-        Returns statistics about the knowledge base (count, sources).
-        """
+        """Returns statistics about the knowledge base."""
+        if not self.available:
+            return "Memory disabled (ChromaDB unavailable on this Python version)."
+            
         try:
             count = self.collection.count()
-            # Getting unique sources is expensive in simple Chroma Setup without metadata filtering tricks
-            # or separate tracking. For now, we just return the count and maybe a sample.
-            # We can peek at the first 10 items to show examples.
-            
             peek = self.collection.peek(limit=5)
             sources = set()
             if peek and 'metadatas' in peek:
@@ -135,9 +148,10 @@ class KnowledgeBase:
             return f"Error getting stats: {e}"
 
     def store_memory(self, text, metadata=None):
-        """
-        Stores a conversation snippet or fact into the vector DB.
-        """
+        """Stores a conversation snippet or fact into the vector DB."""
+        if not self.available:
+            return False
+            
         try:
             if not metadata:
                 metadata = {"type": "conversation", "timestamp": "unknown"}
@@ -156,7 +170,5 @@ class KnowledgeBase:
             return False
 
     def search_memory(self, query, n_results=3):
-        """
-        Searches strictly for conversation/memory items.
-        """
+        """Searches for conversation/memory items."""
         return self.search(query, n_results)
