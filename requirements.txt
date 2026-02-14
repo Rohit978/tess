@@ -1,0 +1,36 @@
+# Core
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+requests>=2.31.0
+
+# AI / LLM
+groq>=0.4.0
+openai>=1.10.0
+google-generativeai>=0.3.0
+google-api-python-client>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+
+# Vector DB / Memory (Pin to avoid Pydantic issues)
+chromadb>=0.4.22
+numpy<2.0.0
+
+# Tools
+beautifulsoup4>=4.12.0
+pyautogui>=0.9.54
+clipboard>=0.0.4
+psutil>=5.9.0
+screen-brightness-control>=0.8.0
+
+# Integrations
+python-telegram-bot>=20.0
+youtube-search-python>=1.6.6
+selenium>=4.0.0
+webdriver-manager>=4.0.0
+playwright>=1.40.0
+
+# Distribution
+build
+twine
+wheel
+setuptools
