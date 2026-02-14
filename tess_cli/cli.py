@@ -51,21 +51,28 @@ def start_telegram_bot(profiles, components):
         logger.error(f"Telegram Bot failed: {e}")
 
 def main():
+    # Import UI first (no external deps, always works)
+    from .core.terminal_ui import (
+        C, print_banner, print_divider, animate_boot, print_status,
+        boot_sequence, print_provider_info, print_ready, get_prompt,
+        print_thinking, clear_thinking, print_tess_message, print_tess_action,
+        print_error, print_security_block, print_warning, print_success,
+        print_info, print_goodbye, print_help
+    )
+
     # 0. Check for Setup/Init (FAST EXIT)
     if len(sys.argv) > 1 and sys.argv[1].lower() == "init":
         try:
             from .core.setup_wizard import SetupWizard
             SetupWizard().run()
         except ImportError as e:
-            print(f"[ERROR] Could not load Setup Wizard: {e}")
-            print("Ensure dependencies are installed: pip install -r requirements.txt")
+            print_error(f"Could not load Setup Wizard: {e}")
+            print_info("Ensure dependencies are installed: pip install -r requirements.txt")
         return
 
-    print("--------------------------------------------------")
-    print("  TESS TERMINAL PRO - HYBRID AGENT (v5.0)")
-    print("--------------------------------------------------")
-    print("\r[TESS] Powering up systems...", end="", flush=True)
-    time.sleep(0.1)
+    # Show the awesome banner
+    print_banner()
+    animate_boot(f"  {C.BRIGHT_CYAN}⚡ Loading core systems...{C.R}", delay=0.02)
 
     # Add paths
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -82,7 +89,7 @@ def main():
         global logger
         logger = setup_logger("Main")
     except Exception as e:
-        print(f"\n\n[CRITICAL ERROR] Failed to import essential modules: {e}")
+        print_error(f"Failed to import essential modules: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -94,7 +101,7 @@ def main():
             mod = __import__(module_path, fromlist=[class_name], globals=globals())
             return getattr(mod, class_name)
         except Exception as e:
-            print(f"  ⚠ {class_name} unavailable: {e}")
+            print_warning(f"{class_name} unavailable: {e}")
             return None
 
     AppLauncher = safe_import("tess_cli.core.app_launcher", "AppLauncher")
@@ -115,7 +122,7 @@ def main():
     Librarian = safe_import("tess_cli.core.librarian", "Librarian")
     TessScheduler = safe_import("tess_cli.core.scheduler", "TessScheduler")
     SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
-    print()  # Newline after warnings
+    print()
 
     # Init Core
     knowledge_db = KnowledgeBase() if KnowledgeBase and Config.is_module_enabled("memory") else None
@@ -127,7 +134,6 @@ def main():
     brain = profiles.get_brain("terminal_user")
     
     # Initialize Components with Toggles
-    # ----------------------------------
     comps = {}
     
     # Core (create if class available)
@@ -198,7 +204,7 @@ def main():
         if watch_path == ".": watch_path = os.getcwd()
         
         librarian = Librarian(knowledge_db, watch_path=watch_path)
-        print("📚 Librarian (Active Learning) starting...")
+        print_info("📚 Librarian (Active Learning) starting...")
         librarian.start()
 
     # Scheduler
@@ -208,18 +214,35 @@ def main():
     
     # Telegram
     if Config.TELEGRAM_BOT_TOKEN and Config._data.get("integrations", {}).get("telegram", {}).get("enabled", False):
-        print("🤖 Starting Telegram...")
+        print_info("🤖 Starting Telegram...")
         threading.Thread(target=start_telegram_bot, args=(profiles, comps), daemon=True).start()
 
-    print("--------------------------------------------------")
-    print("  CLI ACCESS MODE (Type 'exit' to quit)")
-    print("--------------------------------------------------")
+    # ─── Boot Dashboard ───
+    boot_sequence(comps, Config._data)
+    print_provider_info(Config.LLM_PROVIDER, Config.LLM_MODEL)
+    print_ready()
     
+    # ─── Main Loop ───
     while True:
         try:
-            user_input = input("\n[USER]> ").strip()
+            user_input = input(get_prompt()).strip()
             if not user_input: continue
-            if user_input.lower() in ["exit", "quit"]: break
+            
+            # Exit
+            if user_input.lower() in ["exit", "quit"]:
+                print_goodbye()
+                break
+            
+            # Help
+            if user_input.lower() == "help":
+                print_help()
+                continue
+
+            # Status
+            if user_input.lower() == "status":
+                boot_sequence(comps, Config._data)
+                print_provider_info(Config.LLM_PROVIDER, Config.LLM_MODEL)
+                continue
 
             # Direct Commands
             if user_input.lower() == "learn apps":
@@ -227,35 +250,40 @@ def main():
                 continue
             
             if user_input.lower() == "learn commands":
-                print("\n[TESS] Starting Command Indexing...")
+                print_info("Starting Command Indexing...")
                 res = comps['command_indexer'].index_system_commands()
-                print(f"[TESS] {res}")
+                print_success(res)
                 continue
 
             if user_input.lower().startswith("watch ") and librarian:
                 path = user_input[6:].strip()
                 if path == ".": path = os.getcwd()
                 success, msg = librarian.change_watch_path(path)
-                print(f"[LIBRARIAN] {msg}")
+                print_info(f"📚 {msg}")
                 continue
             
             # Voice Input
             if user_input.lower() in ["listen", "voice"]:
-                path = comps['voice_client'].listen()
-                if path:
-                    txt = comps['voice_client'].transcribe(path)
-                    print(f"You said: {txt}")
-                    if txt: user_input = txt
-                    else: continue
+                if comps.get('voice_client'):
+                    path = comps['voice_client'].listen()
+                    if path:
+                        txt = comps['voice_client'].transcribe(path)
+                        print_info(f"You said: {txt}")
+                        if txt: user_input = txt
+                        else: continue
+                else:
+                    print_warning("Voice client unavailable")
+                    continue
 
             # 1. GENERATE
-            print("Thinking...")
+            print_thinking()
             response = brain.generate_command(user_input)
+            clear_thinking()
             
             # 2. SECURITY CHECK
             is_safe, reason = security.validate_action(response)
             if not is_safe:
-                print(f"🛡️ [SECURITY BLOCK] {reason}")
+                print_security_block(reason)
                 brain.update_history("system", f"Action BLOCKED: {reason}")
                 continue
 
@@ -263,10 +291,10 @@ def main():
             process_action(response, comps, brain)
 
         except KeyboardInterrupt:
-            print("\nExiting...")
+            print_goodbye()
             break
         except Exception as e:
-            print(f"CRITICAL ERROR: {e}")
+            print_error(f"{e}")
             import traceback
             traceback.print_exc()
 

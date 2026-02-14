@@ -1,5 +1,6 @@
 from .schemas import TessAction
 from .logger import setup_logger
+from .terminal_ui import C, print_tess_message, print_tess_action, print_error, print_warning
 
 logger = setup_logger("Orchestrator")
 
@@ -12,14 +13,13 @@ def process_action(action_data: dict, components: dict, brain):
     
     # helper for output
     def out(msg):
-        print(f"[TESS] {msg}")
+        print_tess_action(msg)
         logger.info(msg)
 
     # 1. REPLY / CONVERSATION
     if action == "reply_op":
         content = action_data.get("content", "")
-        print(f"\n💬 TESS: {content}\n")
-        # brain.update_history("assistant", content) # Already done in Brain
+        print_tess_message(content)
 
     # 2. SYSTEM CONTROL
     elif action == "system_control":
@@ -49,10 +49,9 @@ def process_action(action_data: dict, components: dict, brain):
         if not components.get('executor'): return out("Executor is disabled.")
         
         cmd = action_data.get("command")
-        # Security Check should have happened before this
         res = components['executor'].execute(cmd)
         out(f"Executed: {cmd}")
-        print(res)
+        print(f"  {C.DIM}{res}{C.R}")
         brain.update_history("system", f"Command Output: {res}")
 
     # 5. FILE OPERATIONS
@@ -65,14 +64,17 @@ def process_action(action_data: dict, components: dict, brain):
         
         if sub == "read":
             res = components['file_mgr'].read_file(path)
-            print(f"\n--- File: {path} ---\n{res[:500]}...\n----------------")
+            print(f"\n  {C.BRIGHT_CYAN}━━━ File: {path} ━━━{C.R}")
+            print(f"  {C.DIM}{res[:500]}...{C.R}")
+            print(f"  {C.BRIGHT_CYAN}{'━' * 40}{C.R}")
             brain.update_history("system", f"File Content ({path}): {res[:1000]}")
         elif sub == "write":
             res = components['file_mgr'].write_file(path, content)
             out(res)
         elif sub == "list":
             res = components['file_mgr'].list_dir(path)
-            print(res)
+            print(f"\n  {C.BRIGHT_CYAN}━━━ Directory: {path} ━━━{C.R}")
+            print(f"  {C.DIM}{res}{C.R}")
             brain.update_history("system", f"Dir Listing: {res}")
 
     # 6. WEB BROWSER (Headless)
@@ -82,13 +84,14 @@ def process_action(action_data: dict, components: dict, brain):
         if action == "web_search_op":
             query = action_data.get("query")
             res = components['web_search'].search_google(query)
-            print(f"\n🔎 Search Results for '{query}':\n{res}\n")
+            print(f"\n  {C.BRIGHT_GREEN}🔎 Search Results for '{query}':{C.R}")
+            print(f"  {C.DIM}{res}{C.R}\n")
             brain.update_history("system", f"Search Results: {res}")
         else:
-             # Scrape
              url = action_data.get("url")
              res = components['web_search'].scrape_page(url)
-             print(f"\n📄 Page Content ({url}):\n{res[:500]}...\n")
+             print(f"\n  {C.BRIGHT_BLUE}📄 Page Content ({url}):{C.R}")
+             print(f"  {C.DIM}{res[:500]}...{C.R}\n")
              brain.update_history("system", f"Page Content: {res[:2000]}")
 
     # 7. MEDIA (YouTube)
@@ -97,11 +100,10 @@ def process_action(action_data: dict, components: dict, brain):
         
         sub = action_data.get("sub_action")
         if sub == "play":
-            out(f"[YOUTUBE] Playing: {action_data.get('query')}")
+            out(f"🎵 Playing: {action_data.get('query')}")
             res = components['youtube_client'].play_video(action_data.get("query"))
             brain.update_history("system", f"YT Play: {res}")
         else:
-            # pause, stop, chrome modes
             pass
 
     # 8. WHATSAPP
@@ -116,13 +118,12 @@ def process_action(action_data: dict, components: dict, brain):
             )
             out(res)
         elif sub == "monitor":
-            out(f"Monitoring {action_data.get('contact')}...")
+            out(f"💬 Monitoring {action_data.get('contact')}...")
             components['whatsapp'].monitor_chat(action_data.get("contact"))
 
     # 9. KNOWLEDGE BASE
     elif action == "knowledge_op":
         if not components.get('knowledge_db'): return out("Memory module is disabled.")
-        # Usually handled internally by Brain, but explicit actions can go here
         pass
 
     # 10. ORGANIZER
@@ -136,18 +137,22 @@ def process_action(action_data: dict, components: dict, brain):
     # 11. GOOGLE (Gmail/Cal)
     elif action == "gmail_op":
         if not components.get('google_client'): return out("Google Integration is disabled.")
-        # Dispatch to google client
-        pass # To be implemented in GoogleClient wrapper
+        pass
 
     # 12. ARCHITECT (Coding)
     elif action == "code_op":
         if not components.get('architect'): return out("Architect (Coding) module is disabled.")
-        # implementation
         pass
 
     # 13. ERROR / UNKNOWN
     elif action == "error":
-        out(f"AI Error: {action_data.get('reason')}")
+        print_error(f"AI Error: {action_data.get('reason')}")
 
     else:
-        out(f"Unknown Action: {action}")
+        # FALLBACK: If the action has a "content" field, treat it as a reply
+        content = action_data.get("content")
+        if content:
+            print_tess_message(content)
+        else:
+            print_warning(f"Unknown Action: {action}")
+
