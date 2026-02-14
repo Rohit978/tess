@@ -70,47 +70,55 @@ def main():
     # Add paths
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-    # 1. Lazy Import Core Components
+    # 1. Import ESSENTIAL modules (these MUST work)
     try:
         from .core.profile_manager import ProfileManager
         from .core.orchestrator import process_action
         from .core.logger import setup_logger
-        
-        # Re-setup logger with proper config
-        global logger
-        logger = setup_logger("Main")
-
         from .core.executor import Executor
         from .core.config import Config
-        from .core.app_launcher import AppLauncher
-        from .core.browser_controller import BrowserController
-        from .core.system_controller import SystemController
-        from .core.file_manager import FileManager
-        from .core.knowledge_base import KnowledgeBase
-        from .core.planner import Planner
-        from .core.web_browser import WebBrowser
-        from .core.task_registry import TaskRegistry
-        from .core.whatsapp_client import WhatsAppClient
-        from .core.youtube_client import YouTubeClient
-        from .core.voice_client import VoiceClient
-        from .core.organizer import Organizer
-        from .core.google_client import GoogleClient
-        from .core.architect import Architect
         from .core.security import SecurityEngine
-        from .core.command_indexer import CommandIndexer
-        from .core.librarian import Librarian
-        from .core.scheduler import TessScheduler
-        from .skills.sysadmin import SysAdminSkill
         
+        global logger
+        logger = setup_logger("Main")
     except Exception as e:
-        print(f"\n\n[CRITICAL ERROR] Failed to import core modules: {e}")
-        print("Tip: Run 'tess init' to verify configuration or check 'pip install -r requirements.txt'")
+        print(f"\n\n[CRITICAL ERROR] Failed to import essential modules: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
 
+    # 2. Import OPTIONAL modules individually (each can fail without killing TESS)
+    def safe_import(module_path, class_name):
+        """Import a class, return None if it fails."""
+        try:
+            mod = __import__(module_path, fromlist=[class_name], globals=globals())
+            return getattr(mod, class_name)
+        except Exception as e:
+            print(f"  ⚠ {class_name} unavailable: {e}")
+            return None
+
+    AppLauncher = safe_import("tess_cli.core.app_launcher", "AppLauncher")
+    BrowserController = safe_import("tess_cli.core.browser_controller", "BrowserController")
+    SystemController = safe_import("tess_cli.core.system_controller", "SystemController")
+    FileManager = safe_import("tess_cli.core.file_manager", "FileManager")
+    KnowledgeBase = safe_import("tess_cli.core.knowledge_base", "KnowledgeBase")
+    Planner = safe_import("tess_cli.core.planner", "Planner")
+    WebBrowser = safe_import("tess_cli.core.web_browser", "WebBrowser")
+    TaskRegistry = safe_import("tess_cli.core.task_registry", "TaskRegistry")
+    WhatsAppClient = safe_import("tess_cli.core.whatsapp_client", "WhatsAppClient")
+    YouTubeClient = safe_import("tess_cli.core.youtube_client", "YouTubeClient")
+    VoiceClient = safe_import("tess_cli.core.voice_client", "VoiceClient")
+    Organizer = safe_import("tess_cli.core.organizer", "Organizer")
+    GoogleClient = safe_import("tess_cli.core.google_client", "GoogleClient")
+    Architect = safe_import("tess_cli.core.architect", "Architect")
+    CommandIndexer = safe_import("tess_cli.core.command_indexer", "CommandIndexer")
+    Librarian = safe_import("tess_cli.core.librarian", "Librarian")
+    TessScheduler = safe_import("tess_cli.core.scheduler", "TessScheduler")
+    SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
+    print()  # Newline after warnings
+
     # Init Core
-    knowledge_db = KnowledgeBase() if Config.is_module_enabled("memory") else None
+    knowledge_db = KnowledgeBase() if KnowledgeBase and Config.is_module_enabled("memory") else None
     profiles = ProfileManager(knowledge_db=knowledge_db)
     
     executor = Executor(safe_mode=Config.SAFE_MODE)
@@ -122,82 +130,81 @@ def main():
     # ----------------------------------
     comps = {}
     
-    # Core (Always On)
+    # Core (create if class available)
     comps['brain'] = brain
     comps['executor'] = executor
     comps['security'] = security
-    comps['launcher'] = AppLauncher()
-    comps['sys_ctrl'] = SystemController()
-    comps['file_mgr'] = FileManager()
-    comps['task_registry'] = TaskRegistry()
-    comps['browser_ctrl'] = BrowserController()
-    comps['sysadmin'] = SysAdminSkill()
-    comps['command_indexer'] = CommandIndexer(knowledge_db)
+    comps['launcher'] = AppLauncher() if AppLauncher else None
+    comps['sys_ctrl'] = SystemController() if SystemController else None
+    comps['file_mgr'] = FileManager() if FileManager else None
+    comps['task_registry'] = TaskRegistry() if TaskRegistry else None
+    comps['browser_ctrl'] = BrowserController() if BrowserController else None
+    comps['sysadmin'] = SysAdminSkill() if SysAdminSkill else None
+    comps['command_indexer'] = CommandIndexer(knowledge_db) if CommandIndexer else None
     
     # Conditional Modules
     comps['knowledge_db'] = knowledge_db
     
     # Planner
-    if Config.is_module_enabled("planner"):
+    if Planner and Config.is_module_enabled("planner"):
         comps['planner'] = Planner(brain)
     else:
         comps['planner'] = None
 
     # Web Search
-    if Config.is_module_enabled("web_search") or Config.is_module_enabled("web_scraping"):
+    if WebBrowser and (Config.is_module_enabled("web_search") or Config.is_module_enabled("web_scraping")):
         comps['web_search'] = WebBrowser(headless=True)
     else:
         comps['web_search'] = None
 
     # WhatsApp
-    if Config.is_module_enabled("whatsapp"):
-        # Requires Voice?
-        vc = VoiceClient(model_size="base") # Lightweight
+    if WhatsAppClient and Config.is_module_enabled("whatsapp"):
+        vc = VoiceClient(model_size="base") if VoiceClient else None
         comps['whatsapp'] = WhatsAppClient(brain, voice_client=vc, headless=False)
     else:
         comps['whatsapp'] = None
 
     # Voice
-    comps['voice_client'] = VoiceClient(model_size="base")
+    comps['voice_client'] = VoiceClient(model_size="base") if VoiceClient else None
 
     # YouTube
-    if Config.is_module_enabled("media"):
+    if YouTubeClient and Config.is_module_enabled("media"):
         comps['youtube_client'] = YouTubeClient(headless=False)
     else:
         comps['youtube_client'] = None
 
     # Organizer
-    if Config.is_module_enabled("file_organizer"):
+    if Organizer and Config.is_module_enabled("file_organizer"):
         comps['organizer'] = Organizer(brain)
     else:
         comps['organizer'] = None
 
     # Code Gen
-    if Config.is_module_enabled("code_generation"):
+    if Architect and Config.is_module_enabled("code_generation"):
         comps['architect'] = Architect()
     else:
         comps['architect'] = None
         
     # Google (Gmail/Cal)
-    if Config.is_module_enabled("gmail") or Config.is_module_enabled("calendar"):
+    if GoogleClient and (Config.is_module_enabled("gmail") or Config.is_module_enabled("calendar")):
          comps['google_client'] = GoogleClient()
     else:
          comps['google_client'] = None
 
     # Librarian
-    if Config._data.get("integrations", {}).get("librarian", {}).get("enabled", False):
+    librarian = None
+    if Librarian and Config._data.get("integrations", {}).get("librarian", {}).get("enabled", False):
         watch_path = Config._data["integrations"]["librarian"].get("watch_path", ".")
         if watch_path == ".": watch_path = os.getcwd()
         
         librarian = Librarian(knowledge_db, watch_path=watch_path)
         print("📚 Librarian (Active Learning) starting...")
         librarian.start()
-    else:
-        librarian = None
 
     # Scheduler
-    tess_scheduler = TessScheduler(brain=brain)
-    tess_scheduler.start()
+    if TessScheduler:
+        tess_scheduler = TessScheduler(brain=brain)
+        tess_scheduler.start()
     
     # Telegram
     if Config.TELEGRAM_BOT_TOKEN and Config._data.get("integrations", {}).get("telegram", {}).get("enabled", False):
