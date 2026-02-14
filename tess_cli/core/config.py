@@ -3,6 +3,15 @@ import json
 import random
 from dotenv import load_dotenv
 
+
+class classproperty:
+    """Descriptor for class-level properties (accessed as Config.X without instantiation)."""
+    def __init__(self, func):
+        self.fget = func
+    def __get__(self, obj, owner):
+        return self.fget(owner)
+
+
 class Config:
     """
     Advanced Configuration for TESS (v5.0)
@@ -139,19 +148,21 @@ class Config:
         except Exception as e:
             print(f"[CONFIG] Failed to save config: {e}")
 
-    # --- ACCESSORS ---
+    # --- ACCESSORS (class-level, not instance) ---
 
-    @property
-    def LLM_PROVIDER(self): return self._data["llm"]["provider"]
+    SYSTEM_PROMPT = """You are TESS, a Terminal-based Executive Support System. You are an advanced AI assistant that helps users with tasks on their computer. You respond with structured JSON actions. You are helpful, efficient, and security-conscious. Always respond in valid JSON format with an 'action' field indicating what to do."""
+
+    @classmethod
+    def get_llm_provider(cls): return cls._data["llm"]["provider"]
     
-    @property
-    def LLM_MODEL(self): return self._data["llm"]["model"]
+    @classmethod
+    def get_llm_model(cls): return cls._data["llm"]["model"]
 
     @classmethod
     def get_api_key(cls, provider=None):
         """
         Returns an API Key for the provider.
-        Implements Key Rotation (Random choice for now, or round-robin).
+        Implements Key Rotation (Random choice).
         """
         if not provider: provider = cls._data["llm"]["provider"]
         keys = cls._data["llm"]["keys"].get(provider, [])
@@ -160,26 +171,38 @@ class Config:
 
     @classmethod
     def is_module_enabled(cls, module_name):
-        return cls._data["modules"].get(module_name, False)
+        # Check both modules and advanced sections
+        if cls._data["modules"].get(module_name, False):
+            return True
+        if cls._data.get("advanced", {}).get(module_name, False):
+            return True
+        return False
 
     @classmethod
     def get_security_level(cls):
         return cls._data["security"]["level"]
 
-    @property
-    def SAFE_MODE(self): return self._data["security"]["safe_mode"]
+    # Class-level properties (accessed as Config.SAFE_MODE, Config.TELEGRAM_BOT_TOKEN, etc.)
+    @classproperty
+    def SAFE_MODE(cls): return cls._data["security"]["safe_mode"]
 
-    @property
-    def TELEGRAM_BOT_TOKEN(self): return self._data["integrations"]["telegram"]["token"]
+    @classproperty
+    def TELEGRAM_BOT_TOKEN(cls): return cls._data["integrations"]["telegram"]["token"]
     
-    @property
-    def TELEGRAM_ALLOWED_USER_ID(self): return self._data["integrations"]["telegram"]["user_id"]
+    @classproperty
+    def TELEGRAM_ALLOWED_USER_ID(cls): return cls._data["integrations"]["telegram"]["user_id"]
 
-    @property
-    def WORKSPACE_DIR(self): return self._data["paths"]["workspace"]
+    @classproperty
+    def WORKSPACE_DIR(cls): return cls._data["paths"]["workspace"]
     
-    @property
-    def MEMORY_DB_Path(self): return self._data["paths"]["memory_db"]
+    @classproperty
+    def MEMORY_DB_PATH(cls): return cls._data["paths"]["memory_db"]
+
+    @classproperty
+    def LLM_PROVIDER(cls): return cls._data["llm"]["provider"]
+
+    @classproperty
+    def LLM_MODEL(cls): return cls._data["llm"]["model"]
 
     # --- STATIC HELPERS (Legacy Support) ---
     @staticmethod
@@ -193,5 +216,7 @@ class Config:
     def get_downloads_path():
         return os.path.join(os.path.expanduser("~"), "Downloads")
 
+
 # Initialize Load
 Config.load()
+
