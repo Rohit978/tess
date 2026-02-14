@@ -227,10 +227,25 @@ def print_info(msg):
     print(f"  {C.BRIGHT_BLUE}ℹ{C.R} {C.DIM}{msg}{C.R}")
 
 
-def print_goodbye():
+def print_greeting(greeting, extras=""):
+    """Print the personalized greeting."""
+    print(f"\n  {C.BRIGHT_WHITE}{C.BOLD}{greeting}{C.R}")
+    if extras:
+        print(f"  {C.DIM}{extras}{C.R}")
+
+
+def print_goodbye(name=None):
     """Print exit message."""
-    print(f"\n  {C.BRIGHT_MAGENTA}👋 TESS shutting down. See you later!{C.R}")
+    who = name or "there"
+    print(f"\n  {C.BRIGHT_MAGENTA}👋 See you later, {who}!{C.R}")
     print(f"  {C.DIM}Thank you for using TESS Terminal Pro{C.R}\n")
+
+
+def print_fact_learned(facts):
+    """Print when TESS learns a new fact."""
+    for fact in facts:
+        print(f"  {C.BRIGHT_GREEN}🧠 Learned:{C.R} {C.DIM}{fact}{C.R}")
+
 
 
 def print_help():

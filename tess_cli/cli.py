@@ -57,8 +57,9 @@ def main():
         boot_sequence, print_provider_info, print_ready, get_prompt,
         print_thinking, clear_thinking, print_tess_message, print_tess_action,
         print_error, print_security_block, print_warning, print_success,
-        print_info, print_goodbye, print_help
+        print_info, print_goodbye, print_help, print_greeting, print_fact_learned
     )
+    from .core.user_profile import UserProfile
 
     # 0. Check for Setup/Init (FAST EXIT)
     if len(sys.argv) > 1 and sys.argv[1].lower() == "init":
@@ -217,9 +218,17 @@ def main():
         print_info("🤖 Starting Telegram...")
         threading.Thread(target=start_telegram_bot, args=(profiles, comps), daemon=True).start()
 
+    # ─── User Profile ───
+    user_profile = UserProfile()
+    comps['user_profile'] = user_profile
+
     # ─── Boot Dashboard ───
     boot_sequence(comps, Config._data)
     print_provider_info(Config.LLM_PROVIDER, Config.LLM_MODEL)
+
+    # ─── Personal Greeting ───
+    greeting, extras = user_profile.get_greeting()
+    print_greeting(greeting, extras)
     print_ready()
     
     # ─── Main Loop ───
@@ -230,7 +239,8 @@ def main():
             
             # Exit
             if user_input.lower() in ["exit", "quit"]:
-                print_goodbye()
+                user_profile.save()
+                print_goodbye(user_profile.name)
                 break
             
             # Help
@@ -275,6 +285,11 @@ def main():
                     print_warning("Voice client unavailable")
                     continue
 
+            # 0. AUTO-LEARN FACTS from user message
+            facts = user_profile.extract_facts_from_text(user_input)
+            if facts:
+                print_fact_learned(facts)
+
             # 1. GENERATE
             print_thinking()
             response = brain.generate_command(user_input)
@@ -287,11 +302,14 @@ def main():
                 brain.update_history("system", f"Action BLOCKED: {reason}")
                 continue
 
-            # 3. EXECUTE
+            # 3. EXECUTE & TRACK
+            action_type = response.get("action") if isinstance(response, dict) else None
+            user_profile.track_command(action_type)
             process_action(response, comps, brain)
 
         except KeyboardInterrupt:
-            print_goodbye()
+            user_profile.save()
+            print_goodbye(user_profile.name)
             break
         except Exception as e:
             print_error(f"{e}")

@@ -76,9 +76,18 @@ class Brain:
         return self._execute_llm_request()
 
     def _enrich_context(self, query):
-        """Injects RAG and Skill context into the system prompt (simulated via msg injection)."""
+        """Injects RAG, Skill, and User Profile context into the conversation."""
         extras = []
         
+        # User Profile Facts
+        try:
+            from .user_profile import UserProfile
+            profile = UserProfile()
+            facts_ctx = profile.get_facts_context()
+            if facts_ctx:
+                extras.append(f"\n[USER PROFILE]\n{facts_ctx}")
+        except: pass
+
         # Memory / Knowledge DB
         if self.knowledge_db:
             try:
@@ -97,12 +106,6 @@ class Brain:
             if svs: extras.append(f"\n[SKILLS] Available: {', '.join(svs)}")
 
         if extras:
-            # We append ephemeral context to the last system message or strictly as a system msg
-            # But to avoid messing with history too much, we just append it to the current user msg
-             # Or better, update the System Prompt in history[0] temporarily? No, history[0] is static.
-             pass 
-             # For now, let's keep it simple. The previous implementation injected it into the prompt.
-             # I will modify _execute_llm_request to prepend context to the immediate request messages.
              self._current_context = "\n".join(extras)
         else:
              self._current_context = ""
