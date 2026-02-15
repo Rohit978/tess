@@ -31,18 +31,37 @@ def process_action(action_data: dict, components: dict, brain):
 
     # 2. SYSTEM CONTROL
     elif action == "system_control":
-        if not components.get('sys_ctrl'): result = out("System Control module is disabled.")
+        sys = components.get('sys_ctrl')
+        if not sys: result = out("System Control module is disabled.")
         else:
             sub = action_data.get("sub_action")
-            if sub == "shutdown": components['sys_ctrl'].shutdown(); result = "System shutting down."
-            elif sub == "restart": components['sys_ctrl'].restart(); result = "System restarting."
-            elif sub == "sleep": components['sys_ctrl'].sleep(); result = "System sleeping."
-            elif sub == "lock": components['sys_ctrl'].lock(); result = "System locked."
-            elif sub == "type": components['sys_ctrl'].type_text(action_data.get("text")); result = f"Typed: {action_data.get('text')}"
-            elif sub == "press": components['sys_ctrl'].press_key(action_data.get("key")); result = f"Pressed: {action_data.get('key')}"
-            elif sub == "screenshot": 
-                res = components['sys_ctrl'].take_screenshot()
-                result = out(res)
+            
+            # Direct System Actions
+            if sub == "shutdown": result = sys.shutdown_system(restart=False)
+            elif sub == "restart": result = sys.shutdown_system(restart=True)
+            elif sub == "sleep": result = sys.sleep_system()
+            elif sub == "lock": result = sys.lock_system()
+            elif sub == "list_processes": result = sys.list_processes()
+            elif sub == "screenshot": result = sys.take_screenshot()
+            
+            # Interaction Actions
+            elif sub == "type": result = sys.type_text(action_data.get("text"))
+            elif sub == "press": result = sys.press_key(action_data.get("key"))
+            
+            # Audio Actions
+            elif sub == "volume_up": result = sys.set_volume("up")
+            elif sub == "volume_down": result = sys.set_volume("down")
+            elif sub == "mute": result = sys.set_volume("mute")
+            
+            # Media Actions
+            elif sub == "play_pause": result = sys.media_control("playpause")
+            elif sub == "media_next": result = sys.media_control("next")
+            elif sub == "media_prev": result = sys.media_control("prev")
+            elif sub == "media_stop": result = sys.media_control("stop")
+            
+            else: result = out(f"Unknown system sub-action: {sub}")
+            
+            if result: out(result)
 
     # 3. APP LAUNCHER
     elif action == "launch_app":
@@ -54,50 +73,53 @@ def process_action(action_data: dict, components: dict, brain):
 
     # 4. EXECUTE COMMAND
     elif action == "execute_command":
-        if not components.get('executor'): result = out("Executor is disabled.")
+        exe = components.get('executor')
+        if not exe: result = out("Executor is disabled.")
         else:
             cmd = action_data.get("command")
-            res = components['executor'].execute(cmd)
+            res = exe.execute_command(cmd)
             out(f"Executed: {cmd}")
             print(f"  {C.DIM}{res}{C.R}")
             result = f"Command Output: {res}"
 
     # 5. FILE OPERATIONS
     elif action == "file_op":
-        if not components.get('file_mgr'): result = out("File Manager is disabled.")
+        fm = components.get('file_mgr')
+        if not fm: result = out("File Manager is disabled.")
         else:
             sub = action_data.get("sub_action")
             path = action_data.get("path")
             content = action_data.get("content")
             
             if sub == "read":
-                res = components['file_mgr'].read_file(path)
+                res = fm.read_file(path)
                 print(f"\n  {C.BRIGHT_CYAN}━━━ File: {path} ━━━{C.R}")
                 print(f"  {C.DIM}{res[:500]}...{C.R}")
                 print(f"  {C.BRIGHT_CYAN}{'━' * 40}{C.R}")
                 result = f"File Content ({path}): {res}"
             elif sub == "write":
-                res = components['file_mgr'].write_file(path, content)
+                res = fm.write_file(path, content)
                 result = out(res)
             elif sub == "list":
-                res = components['file_mgr'].list_dir(path)
+                res = fm.list_dir(path)
                 print(f"\n  {C.BRIGHT_CYAN}━━━ Directory: {path} ━━━{C.R}")
                 print(f"  {C.DIM}{res}{C.R}")
                 result = f"Dir Listing ({path}): {res}"
 
     # 6. WEB BROWSER (Headless)
     elif action == "web_search_op" or action == "web_op":
-        if not components.get('web_search'): result = out("Web Search is disabled.")
+        wb = components.get('web_search')
+        if not wb: result = out("Web Search is disabled.")
         else:
             if action == "web_search_op":
                 query = action_data.get("query")
-                res = components['web_search'].search_google(query)
+                res = wb.search_google(query)
                 print(f"\n  {C.BRIGHT_GREEN}🔎 Search Results for '{query}':{C.R}")
                 print(f"  {C.DIM}{res}{C.R}\n")
                 result = f"Search Results: {res}"
             else:
                  url = action_data.get("url")
-                 res = components['web_search'].scrape_page(url)
+                 res = wb.scrape_page(url)
                  print(f"\n  {C.BRIGHT_BLUE}📄 Page Content ({url}):{C.R}")
                  print(f"  {C.DIM}{res[:500]}...{C.R}\n")
                  result = f"Page Content: {res}"
@@ -188,6 +210,31 @@ def process_action(action_data: dict, components: dict, brain):
             elif sub == "replace_block":
                 res = engine.replace_block(action_data.get("filename"), action_data.get("search"), action_data.get("replace"))
                 result = out(res)
+
+    # 13. GIT OPERATIONS
+    elif action == "git_op":
+        exe = components.get('executor')
+        if not exe: result = out("Executor is disabled.")
+        else:
+            sub = action_data.get("sub_action")
+            msg = action_data.get("message", "")
+            
+            cmd = ""
+            if sub == "status": cmd = "git status"
+            elif sub == "log": cmd = "git log -n 5 --oneline"
+            elif sub == "diff": cmd = "git diff"
+            elif sub == "commit": cmd = f'git commit -a -m "{msg}"'
+            elif sub == "push": cmd = "git push"
+            elif sub == "pull": cmd = "git pull"
+            elif sub == "add": cmd = "git add ."
+            
+            if cmd:
+                out(f"Git Action: {sub}")
+                res = exe.execute_command(cmd)
+                print(f"  {C.DIM}{res}{C.R}")
+                result = f"Git {sub}: {res}"
+            else:
+                result = out(f"Unknown Git sub-action: {sub}")
 
     # 13. ERROR / UNKNOWN
     elif action == "error":

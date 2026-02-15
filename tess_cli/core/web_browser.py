@@ -16,7 +16,7 @@ class WebBrowser:
         self.screenshot_dir = os.path.join(os.getcwd(), "screenshots")
         os.makedirs(self.screenshot_dir, exist_ok=True)
 
-    def scrape_sync(self, url):
+    def scrape_page(self, url):
         """Synchronous scraping for CLI"""
         try:
             with sync_playwright() as p:
@@ -100,7 +100,7 @@ class WebBrowser:
             logger.error(f"Screenshot Async Error: {e}")
             return f"Error: {e}"
 
-    def search_sync(self, query, headless=True):
+    def search_google(self, query, headless=True):
         """
         Performs a DuckDuckGo Search (HTML version) to avoid CAPTCHAs.
         """

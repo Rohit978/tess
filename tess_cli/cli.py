@@ -57,7 +57,8 @@ def main():
         boot_sequence, print_provider_info, print_ready, get_prompt,
         print_thinking, clear_thinking, print_tess_message, print_tess_action,
         print_error, print_security_block, print_warning, print_success,
-        print_info, print_goodbye, print_help, print_greeting, print_fact_learned, print_stats_dashboard
+        print_info, print_goodbye, print_help, print_greeting, print_fact_learned, print_stats_dashboard,
+        console
     )
     from .core.user_profile import UserProfile
 
@@ -73,7 +74,6 @@ def main():
 
     # Show the awesome banner
     print_banner()
-    animate_boot(f"  {C.BRIGHT_CYAN}⚡ Loading core systems...{C.R}", delay=0.02)
 
     # Add paths
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -239,7 +239,8 @@ def main():
     # ─── Main Loop ───
     while True:
         try:
-            user_input = input(get_prompt()).strip()
+            # Use rich console.input to render the prompt styles correctly
+            user_input = console.input(get_prompt()).strip()
             if not user_input: continue
             
             # Exit
@@ -261,7 +262,11 @@ def main():
 
             # Direct Commands
             if user_input.lower() == "learn apps":
-                comps['executor'].scan_installed_apps()
+                if comps.get('launcher'):
+                    res = comps['launcher'].scan_apps()
+                    print_success(res)
+                else:
+                    print_warning("App Launcher is disabled.")
                 continue
             
             if user_input.lower() == "learn commands":

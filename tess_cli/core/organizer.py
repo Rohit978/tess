@@ -13,7 +13,7 @@ class Organizer:
     def __init__(self, brain):
         self.brain = brain
 
-    def organize(self, path, criteria="general_cleanup"):
+    def organize_directory(self, path, criteria="general_cleanup"):
         """
         Scans a directory and organizes files based on criteria.
         """

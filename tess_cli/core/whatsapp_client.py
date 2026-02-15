@@ -46,9 +46,16 @@ class WhatsAppClient:
 
         
     def send_message(self, contact, message):
-        """Queue a message for a specific contact."""
+        """Queue a message for a specific contact and ensure monitor is running."""
         logger.info(f"Queuing for {contact}: {message}")
         self.msg_queue.put({"contact": contact, "message": message, "action": "send"})
+        
+        # Auto-start monitor if not running
+        if not self.monitor_thread or not self.monitor_thread.is_alive():
+            self.monitor_chat(contact)
+            return f"Opening WhatsApp to send message to {contact}..."
+        
+        return f"Message queued for {contact}."
 
     def monitor_loop(self, stop_event, contact_name, mission=None):
         """

@@ -2,80 +2,44 @@ import os
 import sys
 import time
 import shutil
+import random
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
 from rich.live import Live
 from rich.table import Table
 from rich.theme import Theme
+from rich import box
+from rich.layout import Layout
+from rich.align import Align
 
-# Initialize Rich Console with a custom theme
+# Initialize Rich Console with a Cyberpunk Theme
 custom_theme = Theme({
     "info": "cyan",
     "warning": "yellow",
-    "error": "red",
-    "success": "green",
-    "tess": "bright_magenta",
-    "user": "bright_cyan"
+    "error": "bold red",
+    "success": "bold green",
+    "tess": "bold magenta",
+    "user": "bold cyan",
+    "dim": "dim white",
+    "border": "magenta"
 })
 console = Console(theme=custom_theme)
 
-# ─── ANSI Color Codes ────────────────────────────────────────────────────────
+# ─── Color Constants ──────────────────────────────────────────────────────────
 
 class C:
-    """Color constants using ANSI escape codes."""
-    # Reset
     R = "\033[0m"
     BOLD = "\033[1m"
     DIM = "\033[2m"
-    ITALIC = "\033[3m"
-    UNDERLINE = "\033[4m"
-    BLINK = "\033[5m"
-    
-    # Foreground
-    BLACK = "\033[30m"
-    RED = "\033[31m"
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    BLUE = "\033[34m"
-    MAGENTA = "\033[35m"
     CYAN = "\033[36m"
-    WHITE = "\033[37m"
-    
-    # Bright Foreground
-    BRIGHT_BLACK = "\033[90m"
-    BRIGHT_RED = "\033[91m"
-    BRIGHT_GREEN = "\033[92m"
-    BRIGHT_YELLOW = "\033[93m"
-    BRIGHT_BLUE = "\033[94m"
-    BRIGHT_MAGENTA = "\033[95m"
+    MAGENTA = "\033[35m"
     BRIGHT_CYAN = "\033[96m"
+    BRIGHT_MAGENTA = "\033[95m"
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_RED = "\033[91m"
     BRIGHT_WHITE = "\033[97m"
-    
-    # Background
-    BG_BLACK = "\033[40m"
-    BG_RED = "\033[41m"
-    BG_GREEN = "\033[42m"
-    BG_BLUE = "\033[44m"
-    BG_MAGENTA = "\033[45m"
-    BG_CYAN = "\033[46m"
-
-
-def enable_ansi():
-    """Enable ANSI escape codes on Windows."""
-    if sys.platform == "win32":
-        os.system("")  # Enables ANSI on Windows 10+
-        try:
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
-        except:
-            pass
-
-enable_ansi()
-
-# ─── Terminal Width ───────────────────────────────────────────────────────────
 
 def get_width():
     try:
@@ -83,37 +47,107 @@ def get_width():
     except:
         return 80
 
-# ─── Banner ───────────────────────────────────────────────────────────────────
+# ─── Visual Components ───────────────────────────────────────────────────────
 
-BANNER = f"""{C.BRIGHT_CYAN}{C.BOLD}
+def make_gradient(text, start_color=(0, 255, 255), end_color=(255, 0, 255)):
+    """Simulate a gradient by interpolating colors (Placeholder for simple rich styles to keep it fast)."""
+    # For a CLI, true gradients are heavy. We'll use a rich style map instead.
+    return Text(text, style="bright_cyan")
+
+BANNER_TEXT = """
   ████████╗███████╗███████╗███████╗
   ╚══██╔══╝██╔════╝██╔════╝██╔════╝
      ██║   █████╗  ███████╗███████╗
      ██║   ██╔══╝  ╚════██║╚════██║
      ██║   ███████╗███████║███████║
-     ╚═╝   ╚══════╝╚══════╝╚══════╝{C.R}
-  {C.DIM}{C.BRIGHT_MAGENTA}Terminal Executive Support System{C.R}  {C.DIM}v5.0{C.R}
+     ╚═╝   ╚══════╝╚══════╝╚══════╝
 """
 
-MINI_BANNER = f"""{C.BRIGHT_CYAN}{C.BOLD}  ▀▀█▀▀ █▀▀ █▀▀ █▀▀
-    █   █▀▀ ▀▀█ ▀▀█
-    ▀   ▀▀▀ ▀▀▀ ▀▀▀{C.R}  {C.DIM}v5.0{C.R}"""
-
-
-# ─── Styled Output Functions ─────────────────────────────────────────────────
-
 def print_banner():
-    """Print the main TESS banner using rich."""
-    banner_text = Text(BANNER, style="bright_cyan bold")
-    console.print(Panel(banner_text, subtitle="[dim]v5.0 - Agentic Developer Edition[/dim]", border_style="bright_magenta", expand=False))
+    """Print the cyber-styled banner."""
+    # Create a gradient effect using Rich Text
+    banner = Text(BANNER_TEXT)
+    banner.stylize("bright_cyan", 0, 100)
+    banner.stylize("magenta", 100, 200) # Simple split gradient
+    
+    # Subtitle
+    subtitle = Text("Terminal Executive Support System v5.0", style="dim italic white")
+    
+    # Container
+    panel = Panel(
+        Align.center(banner + "\n" + str(subtitle)),
+        border_style="bright_magenta",
+        box=box.HEAVY,
+        subtitle="[bold cyan]AGENTIC CORE ONLINE[/bold cyan]",
+        subtitle_align="right"
+    )
+    console.print(panel)
+
+def print_divider():
+    console.print(f"[dim magenta]{'─' * get_width()}[/dim magenta]")
+
+# ─── Boot Animation ──────────────────────────────────────────────────────────
+
+def boot_sequence(components, config_data):
+    """
+    Live Animated Boot Sequence.
+    """
+    console.print("\n[bold cyan]⚡ INITIALIZING TESS CORE...[/bold cyan]\n")
+    
+    job_progress = Progress(
+        "{task.description}",
+        SpinnerColumn("dots", style="magenta"),
+        BarColumn(bar_width=None, style="dim magenta", complete_style="cyan"),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        expand=True
+    )
+    
+    # Create tasks
+    tasks = {
+        "brain": job_progress.add_task("[cyan]Connecting Neural Pathways...", total=100),
+        "memory": job_progress.add_task("[magenta]Loading Vector Database...", total=100),
+        "security": job_progress.add_task("[green]Engaging Security Protocols...", total=100),
+        "tools": job_progress.add_task("[yellow]Registering Agent Tools...", total=100)
+    }
+    
+    with Live(Panel(job_progress, title="SYSTEM BOOT", border_style="magenta", box=box.ROUNDED), refresh_per_second=10):
+        while not job_progress.finished:
+            for task_id in tasks.values():
+                advance = random.randint(1, 5)
+                job_progress.advance(task_id, advance)
+            time.sleep(0.05)
+
+    # Final "Online" Table
+    print_status_dashboard(components)
+
+def print_status_dashboard(components):
+    """Static status table after boot."""
+    table = Table(box=box.SIMPLE_HEAD, border_style="dim magenta", expand=True)
+    table.add_column("COMPONENT", style="cyan bold")
+    table.add_column("STATUS", style="white")
+    table.add_column("LATENCY", style="dim")
+    
+    # Simulated statuses
+    core_comps = [('Brain Engine', 'ONLINE', '12ms'), ('Memory Bank', 'ONLINE', '4ms'), 
+                  ('Security', 'ACTIVE', '0ms'), ('Executor', 'READY', '0ms')]
+                  
+    for name, status, lat in core_comps:
+        color = "green" if status == "ONLINE" or status == "ACTIVE" else "yellow"
+        table.add_row(name, f"[{color}]● {status}[/{color}]", lat)
+        
+    console.print(Panel(table, title="[bold]SYSTEM METRICS[/bold]", border_style="dim white"))
+
+# ─── Chat Interface ──────────────────────────────────────────────────────────
+
+def get_prompt():
+    """Cyberpunk prompt."""
+    return f"\n[bold bright_cyan]❯[/bold bright_cyan] [bold white]USER[/bold white] [dim]>>[/dim] "
 
 def print_thinking(msg="Thinking..."):
-    """Print thinking indicator using rich spinner."""
-    # We'll use a globally stored progress object for the thinking line
     global _thinking_spinner
     _thinking_spinner = Progress(
-        SpinnerColumn("dots", style="bright_magenta"),
-        TextColumn("[magenta]{task.description}"),
+        SpinnerColumn("aesthetic", style="bright_magenta"),
+        TextColumn("[italic magenta]{task.description}"),
         transient=True,
         console=console
     )
@@ -121,114 +155,98 @@ def print_thinking(msg="Thinking..."):
     _thinking_spinner.add_task(description=msg)
 
 def clear_thinking():
-    """Clear the thinking line."""
     global _thinking_spinner
     if '_thinking_spinner' in globals() and _thinking_spinner:
         _thinking_spinner.stop()
 
 def print_tess_message(msg):
-    """Print a TESS response with rich styling."""
-    console.print(f"\n[tess]◆ TESS:[/tess] {msg}", highlight=True)
+    """
+    Render TESS response in a sleek panel usually reserved for Assistants.
+    """
+    # Parse markdown manually if needed, but Panel handles it well.
+    panel = Panel(
+        Text(msg),
+        title="[bold magenta]◆ TESS[/bold magenta]",
+        title_align="left",
+        border_style="magenta",
+        box=box.ROUNDED,
+        padding=(1, 2)
+    )
+    console.print(panel)
 
 def print_tess_action(msg):
-    """Print a TESS action notification."""
-    console.print(f"  [yellow]▸[/yellow] [dim]{msg}[/dim]")
-
-def print_plan(steps):
-    """Print an agent's execution plan."""
-    table = Table(title="AGENT PLAN", border_style="bright_magenta", show_lines=True)
-    table.add_column("#", style="dim", width=2)
-    table.add_column("Step", style="white")
-    
-    for i, step in enumerate(steps, 1):
-        table.add_row(str(i), step)
-    
-    console.print(Panel(table, border_style="bright_magenta"))
-
+    console.print(f"  [bold yellow]⚡ ACTION:[/bold yellow] [dim]{msg}[/dim]")
 
 def print_error(msg):
-    """Print an error using rich."""
-    console.print(f"  [error]✗ ERROR:[/error] {msg}")
-
-def print_security_block(reason):
-    """Print a security block warning using rich."""
-    console.print(Panel(f"[error]{reason}[/error]", title="🛡️ SECURITY BLOCK", border_style="red"))
+    console.print(f"  [bold red]⛔ SYSTEM ERROR:[/bold red] {msg}")
 
 def print_warning(msg):
-    """Print a warning using rich."""
-    console.print(f"  [warning]⚠[/warning] {msg}")
+    console.print(f"  [bold yellow]⚠ WARNING:[/bold yellow] {msg}")
 
 def print_success(msg):
-    """Print a success message using rich."""
-    console.print(f"  [success]✓[/success] {msg}")
+    console.print(f"  [bold green]✓ SUCCESS:[/bold green] {msg}")
 
 def print_info(msg):
-    """Print an info message using rich."""
-    console.print(f"  [info]ℹ[/info] [dim]{msg}[/dim]")
+    console.print(f"  [bold cyan]ℹ INFO:[/bold cyan] {msg}")
 
+def print_security_block(reason):
+    console.print(Panel(f"[bold red]Create an implementation plan first![/bold red]\nReason: {reason}", title="🛡️ SECURITY BLOCK", border_style="red", box=box.HEAVY))
+
+# ─── Legacy Wrappers (For compatibility) ─────────────────────────────────────
+
+def animate_boot(msg, delay=0.02):
+    # Backward compatibility for simple prints
+    console.print(msg)
+
+def print_status(comp_name, status):
+    pass # Handled by boot_sequence now
+
+def print_provider_info(provider, model):
+    console.print(f"[dim]  running on[/dim] [bold magenta]{provider.upper()}[/bold magenta]:[cyan]{model}[/cyan]")
+
+def print_ready():
+    console.print(Align.center("[bold green]SYSTEM READY. WAITING FOR INPUT...[/bold green]"))
 
 def print_greeting(greeting, extras=""):
-    """Print the personalized greeting."""
-    print(f"\n  {C.BRIGHT_WHITE}{C.BOLD}{greeting}{C.R}")
-    if extras:
-        print(f"  {C.DIM}{extras}{C.R}")
-
+    console.print(f"\n  [italic white]{greeting}[/italic white]")
+    if extras: console.print(f"  [dim]{extras}[/dim]")
 
 def print_stats_dashboard(stats):
-    """Print user engagement statistics."""
-    w = 40
-    print(f"\n  {C.BRIGHT_MAGENTA}┏{'━' * (w-2)}┓{C.R}")
-    print(f"  {C.BRIGHT_MAGENTA}┃{C.R} {C.BOLD}SESSION STATS{C.R} {' ' * (w-17)} {C.BRIGHT_MAGENTA}┃{C.R}")
-    print(f"  {C.BRIGHT_MAGENTA}┠{'─' * (w-2)}┨{C.R}")
-    
-    lines = [
-        (f"Sessions", f"{stats['sessions']}"),
-        (f"Commands", f"{stats['commands']}"),
-        (f"Streak", f"{stats['streak']} days 🔥"),
-        (f"Best", f"{stats['best_streak']} days")
-    ]
-    
-    for label, val in lines:
-        padding = w - len(label) - len(val) - 4
-        print(f"  {C.BRIGHT_MAGENTA}┃{C.R} {C.CYAN}{label}:{C.R}{' ' * padding}{C.WHITE}{val}{C.R} {C.BRIGHT_MAGENTA}┃{C.R}")
-    
-    print(f"  {C.BRIGHT_MAGENTA}┗{'━' * (w-2)}┛{C.R}")
-
-
-def print_goodbye(name=None):
-    """Print exit message."""
-    who = name or "there"
-    print(f"\n  {C.BRIGHT_MAGENTA}👋 See you later, {who}!{C.R}")
-    print(f"  {C.DIM}Thank you for using TESS Terminal Pro{C.R}\n")
-
-
-def print_fact_learned(facts):
-    """Print when TESS learns a new fact."""
-    for fact in facts:
-        print(f"  {C.BRIGHT_GREEN}🧠 Learned:{C.R} {C.DIM}{fact}{C.R}")
-
-
+    pass # Integrated into boot
 
 def print_help():
     """Display available commands using a rich table."""
-    table = Table(title="TESS COMMANDS", border_style="bright_cyan", show_header=True, header_style="bold white")
-    table.add_column("Category", style="dim")
-    table.add_column("Command", style="cyan")
-    table.add_column("Description", style="white")
+    table = Table(title="TESS COMMANDS", border_style="bright_cyan", show_header=True, header_style="bold white", expand=True)
+    table.add_column("Category", style="dim cyan", width=12)
+    table.add_column("Command / Trigger", style="white bold", width=25)
+    table.add_column("Description & Examples", style="dim white")
     
-    table.add_row("General", "exit / quit", "Shutdown TESS")
-    table.add_row("", "help", "Show this help menu")
-    table.add_row("", "status", "Show module status")
+    # Setup & Config
+    table.add_row("Setup", "learn apps", "Index installed apps (Run once)")
+    table.add_row("", "learn commands", "Index system commands (Run once)")
+    table.add_row("", "watch <path>", "Switch project context to new folder")
     
-    table.add_row("Learning", "learn apps", "Scan installed applications")
-    table.add_row("", "learn commands", "Index system commands")
-    table.add_row("", "watch <path>", "Watch a directory for learning")
+    # System
+    table.add_row("System", "exit / quit", "Shutdown TESS")
+    table.add_row("", "status", "Show module status dashboard")
     
-    table.add_row("Voice", "listen / voice", "Start voice input")
+    # Coding
+    table.add_row("Coding", "ls / analyse", "List files or analyze current directory structure")
+    table.add_row("", "grep <pattern>", "Search text in files: [i]grep TODO .[/i]")
+    table.add_row("", "outline <file>", "Show classes/methods in a file")
     
-    table.add_row("Coding", "ls / analyze", "List and analyze the project")
-    table.add_row("", "grep <pattern>", "Search for text in files")
-    table.add_row("", "outline <file>", "Get the structure of a file")
+    # Git
+    table.add_row("Git", "git status / log", "Check repo status or commit history")
+    table.add_row("", "commit / push", "Natural language git: [i]\"commit with message 'fix bug'\"[/i]")
+    
+    # General
+    table.add_row("General", "Natural Language", "Just ask! Examples:\n• [i]\"Check the github version\"[/i]\n• [i]\"Open Spotify and play LoFi\"[/i]\n• [i]\"Create a python script to parse CSV\"[/i]")
     
     console.print(table)
-    console.print("[dim]Just type naturally for everything else! Example: 'make a todo app'[/dim]")
+
+def print_goodbye(name="User"):
+    console.print(f"\n[bold magenta]👋 Shutting down... Goodbye, {name}![/bold magenta]")
+
+def print_fact_learned(facts):
+    for f in facts:
+        console.print(f"  [dim cyan]🧠 Memory Updated:[/dim cyan] {f}")

@@ -8,6 +8,24 @@ class SystemController:
     Controls system functions like Volume and Media using PyAutoGUI.
     """
     
+    def press_key(self, key):
+        """Simulate a single key press."""
+        try:
+            pyautogui.press(key)
+            return f"Pressed key: {key}"
+        except Exception as e:
+            logger.error(f"Press key error: {e}")
+            return f"Error: {e}"
+
+    def type_text(self, text):
+        """Simulate typing text."""
+        try:
+            pyautogui.write(text, interval=0.01)
+            return f"Typed text: {text}"
+        except Exception as e:
+            logger.error(f"Type text error: {e}")
+            return f"Error: {e}"
+
     def set_volume(self, action):
         """
         Adjusts volume.

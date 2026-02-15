@@ -64,6 +64,20 @@ class AppLauncher:
         except Exception as e:
             return f"Scan failed: {str(e)}"
 
+    def launch_app(self, app_name):
+        """
+        Discovery and Execution combo.
+        """
+        cmd = self.get_launch_command(app_name)
+        if not cmd:
+            return f"Error: Could not find application '{app_name}'"
+            
+        try:
+            subprocess.run(["powershell", "-NoProfile", "-Command", cmd], check=True)
+            return f"Launched {app_name}"
+        except Exception as e:
+            return f"Failed to launch {app_name}: {e}"
+
     def find_app(self, app_name):
         """
         Fuzzy search for an app by name.
