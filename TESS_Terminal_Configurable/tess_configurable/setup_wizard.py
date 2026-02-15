@@ -136,29 +136,35 @@ class SetupWizard:
                 key_num = 1
                 while True:
                     key_prompt = f"Enter {provider} API key #{key_num}" if key_num > 1 else f"Enter {provider} API key"
-                    key = self._visible_input(key_prompt)
+                    key_str = self._visible_input(key_prompt)
                     
-                    if key:
-                        is_valid, msg = self.config.validate_api_key(provider, key)
-                        if is_valid:
-                            if key_num == 1:
-                                self.config.set_api_key(provider, key)
-                            else:
-                                self.config.add_api_key(provider, key)
-                            keys_configured += 1
-                            console.print(f"[green]✓ {provider} key #{key_num} configured[/green]")
-                        else:
-                            console.print(f"[yellow]⚠ {msg}[/yellow]")
-                            if Confirm.ask("Save anyway?"):
+                    if key_str:
+                        # Support comma-separated list if user pastes multiple at once
+                        pasted_keys = [k.strip() for k in key_str.split(",") if k.strip()]
+                        
+                        for key in pasted_keys:
+                            is_valid, msg = self.config.validate_api_key(provider, key)
+                            if is_valid:
                                 if key_num == 1:
                                     self.config.set_api_key(provider, key)
                                 else:
                                     self.config.add_api_key(provider, key)
                                 keys_configured += 1
+                                console.print(f"[green]✓ {provider} key #{key_num} configured[/green]")
+                                key_num += 1
+                            else:
+                                console.print(f"[yellow]⚠ {msg} for key: {key[:8]}...[/yellow]")
+                                if Confirm.ask("Save anyway?"):
+                                    if key_num == 1:
+                                        self.config.set_api_key(provider, key)
+                                    else:
+                                        self.config.add_api_key(provider, key)
+                                    keys_configured += 1
+                                    key_num += 1
                         
-                        # Ask if user wants to add another key for this provider
+                        # If the user pasted a list, key_num has already advanced.
+                        # Ask if they want even more keys.
                         if Confirm.ask(f"Add another {provider} key for rotation?", default=False):
-                            key_num += 1
                             continue
                     break
         

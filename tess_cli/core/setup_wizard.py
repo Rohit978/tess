@@ -11,13 +11,18 @@ class SetupWizard:
     """
 
     def __init__(self):
-        self.config = Config._data.copy()
-        self.config["llm"]["keys"] = {
-            "groq": [],
-            "openai": [],
-            "deepseek": [],
-            "gemini": []
-        }
+        import copy
+        Config.load()
+        self.config = copy.deepcopy(Config._data)
+        
+        # Ensure keys structure exists
+        if "keys" not in self.config["llm"]:
+            self.config["llm"]["keys"] = {
+                "groq": [],
+                "openai": [],
+                "deepseek": [],
+                "gemini": []
+            }
 
     def run(self):
         print("\n🧙‍♂️  TESS TERMINAL PRO - SETUP WIZARD (v5.0)")
@@ -64,12 +69,29 @@ class SetupWizard:
         self.config["llm"]["provider"] = provider
         
         # Keys
+        existing_keys = self.config["llm"]["keys"].get(provider, [])
+        current_keys_str = ",".join(existing_keys)
         print(f"\nEnter API Keys for {provider.upper()}.")
-        print("You can enter multiple keys separated by commas (key1,key2) to avoid rate limits.")
-        keys_str = self._input(f"{provider.title()} API Keys")
-        if keys_str:
-            keys = [k.strip() for k in keys_str.split(",") if k.strip()]
-            self.config["llm"]["keys"][provider] = keys
+        print("You can paste a comma-separated list (key1,key2) or enter them one by one.")
+        
+        # First prompt shows existing keys as default
+        prompt = f"{provider.title()} API Keys"
+        keys_input = self._input(prompt, current_keys_str)
+        
+        if keys_input:
+            # Handle potential list and add to temporary list
+            new_keys = [k.strip() for k in keys_input.split(",") if k.strip()]
+            self.config["llm"]["keys"][provider] = new_keys
+            
+            # Loop for "one-by-one" additions
+            while self._bool_input(f"Add another {provider} key for rotation?", False):
+                more_key = self._input(f"Next {provider} Key").strip()
+                if more_key:
+                    # Support list even in the "one-by-one" prompt
+                    for sub_key in [k.strip() for k in more_key.split(",") if k.strip()]:
+                        if sub_key not in self.config["llm"]["keys"][provider]:
+                            self.config["llm"]["keys"][provider].append(sub_key)
+                else: break
         
         # Optional: Add keys for others?
         if self._bool_input(f"Add backup keys for other providers?", False):
