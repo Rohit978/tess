@@ -37,7 +37,8 @@ class SetupWizard:
             print("  [5] Media & Web (YouTube, Scraping)")
             print("  [6] Advanced AI (Research, Coding)")
             print("  [7] Integrations (Telegram, Librarian)")
-            print("  [8] Run Full Setup Wizard (All Steps)")
+            print("  [8] Experimental Protocol (Guardian, Sandbox)")
+            print("  [9] Run Full Setup Wizard (All Steps)")
             print("  [0] Save & Exit")
             
             choice = self._input("\nSelect Option", "0")
@@ -49,7 +50,8 @@ class SetupWizard:
             elif choice == "5": self._setup_media_web()
             elif choice == "6": self._setup_ai_features()
             elif choice == "7": self._setup_integrations()
-            elif choice == "8": self.run_full_setup()
+            elif choice == "8": self._setup_experimental_protocol()
+            elif choice == "9": self.run_full_setup()
             elif choice == "0": 
                 self._save_config()
                 print("\n✅ Configuration Saved. Run 'tess' to start.")
@@ -67,6 +69,7 @@ class SetupWizard:
         self._setup_media_web()
         self._setup_ai_features()
         self._setup_integrations()
+        self._setup_experimental_protocol()
 
     def _input(self, prompt, default=None):
         """Helper for input with default."""
@@ -216,6 +219,12 @@ class SetupWizard:
         integ["librarian"]["enabled"] = self._bool_input("Enable Librarian (Auto File Watcher)?", True)
         if integ["librarian"]["enabled"]:
              integ["librarian"]["watch_path"] = self._input("  Folder to watch (default: current)", ".")
+
+    def _setup_experimental_protocol(self):
+        print("\n☢️  Step 8: Experimental Protocol (Use with caution)")
+        mods = self.config["modules"]
+        mods["privacy_aura"] = self._bool_input("Enable Privacy Aura (Guardian - Face/Stranger Detection)?", False)
+        mods["digital_twin"] = self._bool_input("Enable Digital Twin (Multiverse Sandbox - Predictive Safety)?", False)
 
     def _save_config(self):
         # Ensure TESS dir
