@@ -299,15 +299,6 @@ def main():
                 continue
             
             # Persona Switching
-            if user_input.lower().startswith("persona"):
-                try:
-                    target = user_input.split(" ", 1)[1].strip().lower()
-                    if target in Config.PERSONALITY_PROMPTS:
-                        user_profile.personality = target
-                        user_profile.save()
-                        
-                        # Hot-swap the brain
-                        brain.personality = target
                         brain.history[0]["content"] = Config.get_system_prompt(target)
                         
                         print_success(f"Persona switched to: [bold magenta]{target.upper()}[/bold magenta]")

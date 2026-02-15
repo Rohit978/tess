@@ -160,18 +160,24 @@ def clear_thinking():
     if '_thinking_spinner' in globals() and _thinking_spinner:
         _thinking_spinner.stop()
 
+def print_thought(msg):
+    """
+    Simulates TESS's 'inner monologue' in a subtle, dim style.
+    """
+    console.print(f"  [dim italic magenta]💭 {msg}[/dim italic magenta]")
+
 def print_tess_message(msg):
     """
-    Render TESS response in a sleek panel usually reserved for Assistants.
+    Render TESS response in a softer, more conversational style.
     """
-    # Parse markdown manually if needed, but Panel handles it well.
+    # Use a simpler, non-heavy box for a 'softer' feel
     panel = Panel(
         Text(msg),
         title="[bold magenta]◆ TESS[/bold magenta]",
         title_align="left",
         border_style="magenta",
-        box=box.ROUNDED,
-        padding=(1, 2)
+        box=box.SIMPLE,
+        padding=(1, 1)
     )
     console.print(panel)
 

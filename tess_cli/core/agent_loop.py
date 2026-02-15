@@ -35,6 +35,12 @@ class AgenticLoop:
                     response = {"action": "reply_op", "content": str(response)}
                 # ----------------------
 
+                # 🛡️ HUMANIZATION: Print 'thought' if available
+                thought = response.get("thought")
+                if thought:
+                    from .terminal_ui import print_thought
+                    print_thought(thought)
+
                 action = response.get("action")
                 
                 # 2. SECURITY CHECK 🛡️
