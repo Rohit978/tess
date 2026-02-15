@@ -278,6 +278,13 @@ def process_action(action_data: dict, components: dict, brain):
                     print_info(f"Step {i+1}/{len(plan)}: {step.get('reason', 'Executing...')}")
                     step_res = process_action(step, components, brain)
                     step_results.append(f"Step {i+1} ({step.get('action')}): {step_res}")
+                    
+                    # 🛡️ SELF-HEALING: Stop and notify if a critical step fails
+                    if "ERROR" in step_res.upper() or "[STDERR]" in step_res.upper():
+                         out(f"⚠️ Step {i+1} failed. Notifying Brain for recovery...")
+                         brain.update_history("system", f"CRITICAL FAILURE in Step {i+1}: {step_res}. Please analyze and propose a fix.")
+                         # We stop the sequence and let the brain propose a fix as the next message
+                         return f"Stopped execution at step {i+1} due to error: {step_res}"
                 
                 result = "Plan Execution Summary:\n" + "\n".join(step_results)
 

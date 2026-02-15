@@ -336,32 +336,23 @@ def main():
             if facts:
                 print_fact_learned(facts)
 
-            # 1. GENERATE
-            print_thinking()
-            response = brain.generate_command(user_input)
+            # 1. RUN AGENTIC LOOP (Multi-step Reasoning)
+            from .core.agent_loop import AgenticLoop
+            
+            progress_msg = "Thinking..."
+            if user_input.lower() in ["listen", "voice"]:
+                 progress_msg = "Transcription complete. Thinking..."
+            
+            print_thinking(progress_msg)
+            
+            # Start the loop
+            loop = AgenticLoop(brain, comps)
+            loop.run(user_input)
+            
             clear_thinking()
             
-            # --- CRASH FIX: Handle Non-Dict Responses ---
-            if isinstance(response, list):
-                if response and isinstance(response[0], dict):
-                    response = response[0] # Take first action if list
-                else:
-                    response = {"action": "reply_op", "content": str(response)}
-            elif not isinstance(response, dict):
-                 response = {"action": "reply_op", "content": str(response)}
-            # --------------------------------------------
-            
-            # 2. SECURITY CHECK
-            is_safe, reason = security.validate_action(response)
-            if not is_safe:
-                print_security_block(reason)
-                brain.update_history("system", f"Action BLOCKED: {reason}")
-                continue
-
-            # 3. EXECUTE & TRACK
-            action_type = response.get("action") if isinstance(response, dict) else None
-            user_profile.track_command(action_type)
-            process_action(response, comps, brain)
+            # 2. Track stats (We track the initial intent)
+            user_profile.track_command("agent_task")
 
         except KeyboardInterrupt:
             user_profile.save()

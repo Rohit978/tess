@@ -75,12 +75,42 @@ class Brain:
         # 2. Update History
         self.history.append({"role": "user", "content": user_query})
         
-        # 3. Sliding Window
-        if len(self.history) > 12: # Keep system prompt + last 10
-             self.history = [self.history[0]] + self.history[-10:]
+        # 3. Context Distillation (Infinite Memory)
+        self._maybe_distill_context()
 
         # 4. Request Completion
         return self._execute_llm_request()
+
+    def _maybe_distill_context(self):
+        """
+        If history is too long, distill it into key facts and progress
+        to prevent 'forgetting'.
+        """
+        if len(self.history) < 20:
+             return
+
+        logger.info("🧠 History too long. Distilling context...")
+        
+        # 1. Prepare Distillation Prompt
+        summary_prompt = (
+            "Summarize the conversation so far in a few bullet points. "
+            "Focus on: 1. Discovered facts about the user. 2. Current project status. 3. Decisions made. "
+            "KEEP IT CONCISE AND IN THIRD PERSON."
+        )
+        
+        # We use a separate request so we don't mess with the history while distilling
+        messages = self.history + [{"role": "user", "content": summary_prompt}]
+        distilled = self.request_completion(messages, temperature=0.3)
+        
+        if distilled:
+            # 2. Update Memory with the distillation
+            if self.memory:
+                self.memory.add_thought(f"Distilled Context: {distilled}")
+            
+            # 3. Trim History: Keep system prompt, distilled fact, and last 4 exchanges
+            distilled_msg = {"role": "system", "content": f"[DISTILLED CONTEXT FROM PREVIOUS CHATS]\n{distilled}"}
+            self.history = [self.history[0], distilled_msg] + self.history[-8:]
+            logger.info("✅ Context distilled and history trimmed.")
 
     def _enrich_context(self, query):
         """Injects RAG, Skill, and User Profile context into the conversation."""
