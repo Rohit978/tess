@@ -189,15 +189,28 @@ class CodingEngine:
         return "\n".join(results[:50]) + (f"\n... total {len(results)} matches" if len(results) > 50 else "")
 
     def get_file_outline(self, filename):
-        """Extract classes and functions from a Python file for mapping."""
+        """Extract structure from Python (classes/funcs) or Markdown (headers) files."""
         import ast
         
         file_path = os.path.join(self.workspace_root, filename)
         if not os.path.exists(file_path):
             return f"Error: {filename} not found."
         
+        # Markdown Support
+        if filename.endswith('.md'):
+            try:
+                outline = []
+                with open(file_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.startswith("#"):
+                            outline.append(line.strip())
+                return "\n".join(outline) if outline else "No headers found."
+            except Exception as e:
+                return f"Error parsing markdown: {e}"
+
+        # Python Support
         if not filename.endswith('.py'):
-            return "Error: Outline only supported for .py files."
+            return "Error: Outline only supported for .py and .md files."
 
         try:
             with open(file_path, "r", encoding="utf-8") as f:
