@@ -155,7 +155,18 @@ def process_action(action_data: dict, components: dict, brain):
 
     # 9. KNOWLEDGE BASE
     elif action == "knowledge_op":
-        result = "Knowledge operations not fully implemented via orchestrator yet."
+        kb = components.get('knowledge_db')
+        if not kb: result = out("Knowledge Base is disabled.")
+        else:
+            sub = action_data.get("sub_action", "search")
+            query = action_data.get("query")
+            if sub == "search_memory":
+                res = kb.search_memory(query)
+                result = f"Memory Match: {res}"
+            else:
+                res = kb.search(query)
+                result = f"Docs Match: {res}"
+            out(f"Knowledge Search: {query}")
 
     # 10. ORGANIZER
     elif action == "organize_op":
@@ -166,8 +177,19 @@ def process_action(action_data: dict, components: dict, brain):
             result = out(res)
 
     # 11. GOOGLE (Gmail/Cal)
-    elif action == "gmail_op":
-        result = "Gmail operations not fully implemented yet."
+    elif action == "gmail_op" or action == "calendar_op":
+        gc = components.get('google_client')
+        if not gc: result = out("Google Integrations are disabled.")
+        else:
+            sub = action_data.get("sub_action")
+            if action == "gmail_op":
+                if sub == "list": result = gc.list_emails()
+                elif sub == "send": result = gc.send_email(action_data.get("to"), action_data.get("subject"), action_data.get("body"))
+            else: # calendar_op
+                if sub == "list": result = gc.list_events()
+                elif sub == "create": result = gc.create_event(action_data.get("summary"), action_data.get("start"))
+            
+            if result: out(f"Google {action}: {result[:50]}...")
 
     # 12. AUTONOMOUS CODING (The Architect)
     elif action == "code_op":
@@ -238,7 +260,28 @@ def process_action(action_data: dict, components: dict, brain):
             else:
                 result = out(f"Unknown Git sub-action: {sub}")
 
-    # 13. ERROR / UNKNOWN
+    # 14. PLANNER (Multi-step)
+    elif action == "planner_op":
+        planner = components.get('planner')
+        if not planner: result = out("Planner is disabled.")
+        else:
+            goal = action_data.get("goal")
+            out(f"📝 Planning Goal: {goal}")
+            plan = planner.create_plan(goal)
+            
+            if not plan:
+                result = out("Failed to generate a valid plan.")
+            else:
+                print_info(f"Generated {len(plan)} steps. Executing...")
+                step_results = []
+                for i, step in enumerate(plan):
+                    print_info(f"Step {i+1}/{len(plan)}: {step.get('reason', 'Executing...')}")
+                    step_res = process_action(step, components, brain)
+                    step_results.append(f"Step {i+1} ({step.get('action')}): {step_res}")
+                
+                result = "Plan Execution Summary:\n" + "\n".join(step_results)
+
+    # 15. ERROR / UNKNOWN
     elif action == "error":
         result = out(f"AI Error: {action_data.get('reason')}")
     else:
