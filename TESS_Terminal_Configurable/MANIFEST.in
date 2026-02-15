@@ -1,5 +1,0 @@
-include README.md
-include LICENSE
-include requirements.txt
-include config/default_settings.json
-recursive-include tess_configurable *.py
