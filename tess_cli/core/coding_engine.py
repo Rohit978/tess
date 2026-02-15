@@ -228,6 +228,15 @@ class CodingEngine:
         except Exception as e:
             return f"Error parsing file: {e}"
 
+        # Generic Text Fallback
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                head = [next(f) for _ in range(50)]
+            if not head: return "Empty file."
+            return "".join(head) + ("\n... (truncated)" if len(head) == 50 else "")
+        except Exception as e:
+            return f"Error reading file: {e}"
+
     def replace_block(self, filename, search_block, replace_block):
         """Surgical edit: replaces a specific block of text with whitespace normalization and atomic write."""
         import tempfile
