@@ -206,6 +206,22 @@ class Brain:
                      logger.error(f"Retry failed: {final_e}")
                      # let it fall through to main retry loop or return error
             
+            # Handle 429 (Rate Limit) - IMMEDIATE FAILOVER
+            if "429" in err_msg or "rate_limit_exceeded" in err_msg:
+                 logger.warning(f"Rate Limit Exceeded for {self.provider}. Failing over immediately...")
+                 if self.provider == "groq":
+                     self.provider = "deepseek"
+                     self.model = "deepseek-coder"
+                 elif self.provider == "deepseek":
+                     self.provider = "gemini"
+                     self.model = "gemini-2.0-flash"
+                 elif self.provider == "gemini":
+                      # Last resort or cycle?
+                      # For now, let it retry or fail if max reached.
+                      pass
+                 
+                 return self._execute_llm_request(retry_count + 1)
+
             # Handle 401 (Auth) OR 404 (Model Not Found)
             if any(x in err_msg for x in ["401", "invalid api key", "404", "not found", "does not exist"]):
                 # If it's a model error, maybe just switch model first?
