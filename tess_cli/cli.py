@@ -282,6 +282,28 @@ def main():
                 print_info(f"📚 {msg}")
                 continue
             
+            # Persona Switching
+            if user_input.lower().startswith("persona"):
+                try:
+                    target = user_input.split(" ", 1)[1].strip().lower()
+                    if target in Config.PERSONALITY_PROMPTS:
+                        user_profile.personality = target
+                        user_profile.save()
+                        
+                        # Hot-swap the brain
+                        brain.personality = target
+                        brain.history[0]["content"] = Config.get_system_prompt(target)
+                        
+                        print_success(f"Persona switched to: [bold magenta]{target.upper()}[/bold magenta]")
+                        # Trigger a greeting from the new persona
+                        response = brain.generate_command(f"Introduce yourself as {target}")
+                        print_tess_message(response.get("content", "Hello!"))
+                    else:
+                        print_warning(f"Unknown persona. Options: {', '.join(Config.PERSONALITY_PROMPTS.keys())}")
+                except IndexError:
+                    print_info(f"Current persona: [bold]{user_profile.personality}[/bold]. Usage: persona <name>")
+                continue
+            
             # Voice Input
             if user_input.lower() in ["listen", "voice"]:
                 if comps.get('voice_client'):
@@ -304,6 +326,16 @@ def main():
             print_thinking()
             response = brain.generate_command(user_input)
             clear_thinking()
+            
+            # --- CRASH FIX: Handle Non-Dict Responses ---
+            if isinstance(response, list):
+                if response and isinstance(response[0], dict):
+                    response = response[0] # Take first action if list
+                else:
+                    response = {"action": "reply_op", "content": str(response)}
+            elif not isinstance(response, dict):
+                 response = {"action": "reply_op", "content": str(response)}
+            # --------------------------------------------
             
             # 2. SECURITY CHECK
             is_safe, reason = security.validate_action(response)

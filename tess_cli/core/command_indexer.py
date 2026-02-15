@@ -65,7 +65,9 @@ class CommandIndexer:
 
     def _scan_commands_powershell(self):
         """Runs the PS1 script to get JSON list of commands."""
-        script_path = os.path.join(os.getcwd(), "src", "scripts", "scan_commands.ps1")
+        # Fix: Use path relative to package installation, not CWD
+        base_dir = os.path.dirname(os.path.dirname(__file__)) # tess_cli/
+        script_path = os.path.join(base_dir, "scripts", "scan_commands.ps1")
         if not os.path.exists(script_path):
             logger.error(f"Script not found: {script_path}")
             return []

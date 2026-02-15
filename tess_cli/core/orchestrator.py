@@ -6,8 +6,10 @@ logger = setup_logger("Orchestrator")
 
 def process_action(action_data: dict, components: dict, brain):
     """
-    Routes the action to the correct component safely.
-    Returns the result string for context capture.
+    🎭 The Grand Orchestrator
+    
+    This function acts as the conductor, routing the Brain's high-level intent 
+    to the specific component (Hands) that can convert it into reality.
     """
     action = action_data.get("action")
     result = ""

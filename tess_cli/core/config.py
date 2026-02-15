@@ -14,13 +14,15 @@ class classproperty:
 
 class Config:
     """
-    Advanced Configuration for TESS (v5.0)
-    Loads from ~/.tess/config.json with .env fallback.
+    ⚙️ TESS Configuration Hub
+    
+    This is where the magic happens! We load settings from `~/.tess/config.json` 
+    but fall back to `.env` if you're old school.
     """
 
     # --- CONSTANTS ---
     HOME_DIR = os.path.expanduser("~")
-    TESS_DIR = os.path.join(HOME_DIR, ".tess")
+    TESS_DIR = os.path.join(HOME_DIR, ".tess") # Home sweet home
     CONFIG_PATH = os.path.join(TESS_DIR, "config.json")
     ENV_PATH = os.path.join(TESS_DIR, "config.env")
 
@@ -153,7 +155,8 @@ class Config:
         "casual": "You are friendly, witty, and helpful. You keep it chill and use a bit of slang and emojis when appropriate. You have a confident, laid-back personality.",
         "professional": "You are formal, precise, and highly professional. You avoid emojis and slang. You provide clear, concise, and structured responses.",
         "witty": "You are clever, sarcastic, and humorous. You love a good pun or a sharp observation, but you always remain helpful and efficient.",
-        "motivational": "You are encouraging, high-energy, and motivational. You act as a hype-man for the user, pushing them to crush their goals and stay productive."
+        "motivational": "You are encouraging, high-energy, and motivational. You act as a hype-man for the user, pushing them to crush their goals and stay productive.",
+        "cute": "You are a cute, bubbly, and enthusiastic assistant who loves to help! (◕‿◕✿) You get really happy when praised and always do your best. You use kaomojis and a very sweet, cheerful tone. You call the user 'Senpai' or by name affectionately."
     }
 
     @classmethod

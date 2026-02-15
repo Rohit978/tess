@@ -40,6 +40,7 @@ class C:
     BRIGHT_GREEN = "\033[92m"
     BRIGHT_RED = "\033[91m"
     BRIGHT_WHITE = "\033[97m"
+    WHITE = "\033[37m"
 
 def get_width():
     try:
@@ -228,6 +229,7 @@ def print_help():
     
     # System
     table.add_row("System", "exit / quit", "Shutdown TESS")
+    table.add_row("", "persona <name>", "Switch personality: [i]persona cute[/i]")
     table.add_row("", "status", "Show module status dashboard")
     
     # Coding
