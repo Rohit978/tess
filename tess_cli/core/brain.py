@@ -181,10 +181,15 @@ class Brain:
             # Handle 401 (Auth) OR 404 (Model Not Found)
             if any(x in err_msg for x in ["401", "invalid api key", "404", "not found", "does not exist"]):
                 # If it's a model error, maybe just switch model first?
-                if "model" in err_msg and self.provider == "groq" and self.model != "llama3-8b-8192":
-                    logger.warning(f"Groq Model {self.model} not found. Falling back to llama3-8b-8192.")
-                    self.model = "llama3-8b-8192"
-                    return self._execute_llm_request(retry_count + 1)
+                if "model" in err_msg:
+                    if self.provider == "groq" and self.model != "llama3-8b-8192":
+                        logger.warning(f"Groq Model {self.model} not found. Falling back to llama3-8b-8192.")
+                        self.model = "llama3-8b-8192"
+                        return self._execute_llm_request(retry_count + 1)
+                    elif self.provider == "gemini" and self.model != "gemini-1.5-flash":
+                        logger.warning(f"Gemini Model {self.model} not found/supported. Falling back to gemini-1.5-flash.")
+                        self.model = "gemini-1.5-flash"
+                        return self._execute_llm_request(retry_count + 1)
 
                 # Get number of keys available for this provider
                 num_keys = len(Config._data["llm"]["keys"].get(self.provider, []))
