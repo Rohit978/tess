@@ -134,6 +134,7 @@ def main():
     GoogleClient = safe_import("tess_cli.core.google_client", "GoogleClient")
     CodingEngine = safe_import("tess_cli.core.coding_engine", "CodingEngine")
     CommandIndexer = safe_import("tess_cli.core.command_indexer", "CommandIndexer")
+    Researcher = safe_import("tess_cli.core.researcher", "Researcher")
     Librarian = safe_import("tess_cli.core.librarian", "Librarian")
     TessScheduler = safe_import("tess_cli.core.scheduler", "TessScheduler")
     SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
@@ -175,17 +176,18 @@ def main():
     comps['knowledge_db'] = knowledge_db
     comps['coding_engine'] = CodingEngine(brain) if CodingEngine else None
     
+    # Web Search
+    web_browser = WebBrowser() if WebBrowser and (Config.is_module_enabled("web_search") or Config.is_module_enabled("web_scraping")) else None
+    comps['web_search'] = web_browser
+
+    # Researcher
+    comps['researcher'] = Researcher(brain, knowledge_db, web_browser) if Researcher and knowledge_db and web_browser else None
+
     # Planner
     if Planner and Config.is_module_enabled("planner"):
         comps['planner'] = Planner(brain)
     else:
         comps['planner'] = None
-
-    # Web Search
-    if WebBrowser and (Config.is_module_enabled("web_search") or Config.is_module_enabled("web_scraping")):
-        comps['web_search'] = WebBrowser()
-    else:
-        comps['web_search'] = None
 
     # WhatsApp
     if WhatsAppClient and Config.is_module_enabled("whatsapp"):

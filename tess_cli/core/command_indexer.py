@@ -33,13 +33,15 @@ class CommandIndexer:
         count = 0
         for cmd_info in commands:
             name = cmd_info.get("Name")
-            path = cmd_info.get("Path")
+            path = cmd_info.get("Source") or cmd_info.get("Path")
+            cmd_type = cmd_info.get("Type", "Application")
             
             # 2. Enrich with Help Text + Docs
-            help_text = self._get_command_help(name)
+            help_text = self._get_command_help(name, cmd_type)
             doc_text = self._scan_local_docs(path)
             
-            full_content = f"Command: {name}\nPath: {path}\n\n[HELP OUTPUT]\n{help_text}\n\n[LOCAL DOCS]\n{doc_text}"
+            definition = f"Definition: {cmd_info.get('Definition')}\n" if cmd_info.get('Definition') else ""
+            full_content = f"Command: {name}\nType: {cmd_type}\n{definition}Path: {path}\n\n[HELP OUTPUT]\n{help_text}\n\n[LOCAL DOCS]\n{doc_text}"
             
             # 3. Upsert to ChromaDB
             try:
@@ -48,19 +50,20 @@ class CommandIndexer:
                 
                 self.kb_collection.upsert(
                     documents=[full_content],
-                    metadatas=[{"type": "command", "name": name, "path": path}],
+                    metadatas=[{"type": "command", "name": name, "type": cmd_type, "path": str(path)}],
                     ids=[doc_id]
                 )
-                logger.debug(f"Indexed command: {name}")
+                logger.debug(f"Indexed {cmd_type}: {name}")
                 count += 1
                 
-                # Report progress every 5 items
-                if count % 5 == 0:
-                    print(f"Indexed {count}/{len(commands)} apps...", end="\r")
+                # Report progress every 20 items
+                if count % 20 == 0:
+                    print(f"Indexed {count}/{len(commands)} commands...", end="\r")
                     
             except Exception as e:
                 logger.error(f"Failed to index {name}: {e}")
 
+        print(f"\nFinalized indexing of {count} commands.")
         return f"Successfully indexed {count} system commands."
 
     def _scan_commands_powershell(self):
@@ -87,13 +90,18 @@ class CommandIndexer:
             logger.error(f"PowerShell scan error: {e}")
             return []
 
-    def _get_command_help(self, name):
-        """Runs <cmd> --help to get usage info."""
+    def _get_command_help(self, name, cmd_type="Application"):
+        """Fetches usage info. Uses Get-Help for PS native, --help for external."""
         try:
-            # Timeout to prevent hanging on interactive apps
-            # Fix: Force UTF-8 and ignore errors to prevent crashes on Windows (cp1252)
+            # For Cmdlets/Functions/Aliases, Get-Help is much better
+            if cmd_type in ["Cmdlet", "Function", "Alias"]:
+                cmd = ["powershell", "-NoProfile", "-Command", f"Get-Help {name} -Full | Out-String"]
+            else:
+                # External EXE fallback
+                cmd = [name, "--help"]
+
             result = subprocess.run(
-                [name, "--help"], 
+                cmd, 
                 capture_output=True, 
                 text=True, 
                 encoding='utf-8', 

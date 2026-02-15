@@ -61,7 +61,24 @@ class AgenticLoop:
                 # 🛡️ SELF-HEALING: If step failed, prompt brain specifically for fix
                 if "ERROR" in str(res).upper() or "[STDERR]" in str(res).upper():
                     print_warning(f"⚠️ Action failed. Initiating self-healing...")
-                    user_query = f"The previous action '{action}' failed with error: {res}. Please analyze the error and try a DIFFERENT approach or fix the command. You have {self.max_steps - current_step} steps left."
+                    
+                    # Check if it's an UNKNOWN COMMAND
+                    researcher = self.components.get('researcher')
+                    err_str = str(res).lower()
+                    unknown_indicators = ["not recognized", "not found", "is not a cmdlet", "is not a function"]
+                    
+                    if researcher and any(x in err_str for x in unknown_indicators):
+                         # Try to extract the command name
+                         # Simple regex to find what's usually after 'The term' or before 'is not recognized'
+                         import re
+                         match = re.search(r"'(.*?)' is not recognized", err_str) or re.search(r"term '(.*?)'", err_str)
+                         cmd_name = match.group(1) if match else action
+                         
+                         research_result = researcher.research_command(cmd_name)
+                         print_info(f"🔎 {research_result}")
+                         user_query = f"I've researched the unknown command '{cmd_name}'. {research_result}. Now, try to fix your previous command or use an alternative."
+                    else:
+                        user_query = f"The previous action '{action}' failed with error: {res}. Please analyze the error and try a DIFFERENT approach or fix the command. You have {self.max_steps - current_step} steps left."
                 else:
                     user_query = "Continue working on the task. Provide 'final_reply' if finished."
                 
