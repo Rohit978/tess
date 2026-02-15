@@ -117,7 +117,9 @@ class Brain:
             if svs: extras.append(f"\n[SKILLS] Available: {', '.join(svs)}")
 
         if extras:
-             self._current_context = "\n".join(extras)
+             ctx = "\n".join(extras)
+             # 🛡️ SANITIZE: Remove control characters (except newline/tab) that confuse some LLMs
+             self._current_context = "".join(ch for ch in ctx if ch.isprintable() or ch in "\n\t")
         else:
              self._current_context = ""
 

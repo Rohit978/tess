@@ -104,6 +104,9 @@ class UserProfile:
 
     def learn_fact(self, fact_text, source="explicit"):
         """Store a fact about the user."""
+        # 🛡️ SANITIZE: Remove control characters and weirdness
+        fact_text = "".join(ch for ch in fact_text if ch.isprintable())
+
         # Avoid duplicates
         for existing in self.data["facts"]:
             if existing["text"].lower() == fact_text.lower():
