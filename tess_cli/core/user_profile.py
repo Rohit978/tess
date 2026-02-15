@@ -262,3 +262,9 @@ class UserProfile:
     @property
     def personality(self):
         return self.data.get("preferences", {}).get("personality", "casual")
+
+    @personality.setter
+    def personality(self, value):
+        if "preferences" not in self.data:
+            self.data["preferences"] = {}
+        self.data["preferences"]["personality"] = value
