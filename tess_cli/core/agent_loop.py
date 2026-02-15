@@ -3,7 +3,7 @@ TESS Agentic Loop - Multi-step Reasoning & Execution
 Enables TESS to loop through multiple actions to solve complex tasks.
 """
 import time
-from .terminal_ui import print_thinking, clear_thinking, print_tess_action, print_error, print_info
+from .terminal_ui import print_thinking, clear_thinking, print_tess_action, print_error, print_info, print_warning
 from .orchestrator import process_action
 
 class AgenticLoop:
