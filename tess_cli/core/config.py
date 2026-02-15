@@ -56,7 +56,8 @@ class Config:
             "trip_planner": True,
             "code_generation": True,
             "file_converter": True,
-            "file_organizer": True
+            "file_organizer": True,
+            "agent_mode": True
         },
         "integrations": {
             "telegram": {
@@ -166,10 +167,15 @@ class Config:
             "You help users with tasks on their computer. "
             "STRICT RULE: You MUST respond ONLY with a SINGLE valid JSON object. "
             "No preamble, no postamble, no markdown blocks, no lists. Just the object. "
+            "\n[AGENTIC REASONING]\n"
+            "If the user task is complex, do NOT try to solve it in one step. "
+            "Think step-by-step. Sequence: 1. Explore (ls, grep), 2. Analyze (outline, read), 3. Edit (write, replace_block), 4. Verify (execute, test).\n"
+            "CRITICAL: When the task is COMPLETED, you MUST use the 'final_reply' action to provide the final result and end the loop.\n"
             "For ALL conversational replies, use: "
             '{"action": "reply_op", "content": "message"}. '
             "\nAVAILABLE ACTIONS:\n"
-            "- reply_op(content): For greetings, chat, and info.\n"
+            "- final_reply(content): USE THIS ONLY WHEN THE ENTIRE TASK IS FINISHED to provide the final summary.\n"
+            "- reply_op(content): For intermediate updates or simple chat.\n"
             "- launch_app(app_name): Open applications.\n"
             "- system_control(sub_action): shutdown, restart, sleep, lock, type, press, screenshot.\n"
             "- execute_command(command): Run terminal commands.\n"
@@ -180,9 +186,13 @@ class Config:
             "- whatsapp_op(sub_action, contact, message): send, monitor.\n"
             "- organize_op(path): Organize files.\n"
             "- planner_op(goal): For complex, multi-step tasks or projects.\n"
-            "- code_op(sub_action, filename, content, project_type): scaffold, write, execute, test, fix, analyze, summarize.\n"
-            "\nREMEMBER: If a task is complex or involves a new project, use planner_op(goal) first. "
-            "Otherwise, use the specific action directly."
+            "- code_op(sub_action, filename, content, pattern, search, replace): \n"
+            "  * scaffold, write, execute, test, fix\n"
+            "  * grep(pattern, path): Fast search.\n"
+            "  * outline(filename): Get classes/functions summary.\n"
+            "  * replace_block(filename, search, replace): Surgical code edit.\n"
+            "  * ls(path): Tree view of directory.\n"
+            "\nREMEMBER: Use code_op sub_actions for surgical developer tasks."
         )
 
     SYSTEM_PROMPT = "" # Kept for backward compatibility but get_system_prompt should be used.
@@ -196,15 +206,17 @@ class Config:
     def get_llm_model(cls): return cls._data["llm"]["model"]
 
     @classmethod
-    def get_api_key(cls, provider=None):
+    def get_api_key(cls, provider=None, index=0):
         """
         Returns an API Key for the provider.
-        Implements Key Rotation (Random choice).
+        Supports sequential rotation via index.
         """
         if not provider: provider = cls._data["llm"]["provider"]
         keys = cls._data["llm"]["keys"].get(provider, [])
         if not keys: return None
-        return random.choice(keys)
+        
+        # Return key at index (modulo to wrap around)
+        return keys[index % len(keys)]
 
     @classmethod
     def is_module_enabled(cls, module_name):

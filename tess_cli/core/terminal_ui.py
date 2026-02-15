@@ -1,12 +1,25 @@
-"""
-TESS Terminal UI - Premium Visual Experience
-Handles all terminal styling, banners, animations, and color output.
-"""
-
 import os
 import sys
 import time
 import shutil
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.live import Live
+from rich.table import Table
+from rich.theme import Theme
+
+# Initialize Rich Console with a custom theme
+custom_theme = Theme({
+    "info": "cyan",
+    "warning": "yellow",
+    "error": "red",
+    "success": "green",
+    "tess": "bright_magenta",
+    "user": "bright_cyan"
+})
+console = Console(theme=custom_theme)
 
 # ─── ANSI Color Codes ────────────────────────────────────────────────────────
 
@@ -90,141 +103,68 @@ MINI_BANNER = f"""{C.BRIGHT_CYAN}{C.BOLD}  ▀▀█▀▀ █▀▀ █▀▀ �
 # ─── Styled Output Functions ─────────────────────────────────────────────────
 
 def print_banner():
-    """Print the main TESS banner."""
-    w = get_width()
-    print(f"\n{C.BRIGHT_BLACK}{'━' * w}{C.R}")
-    print(BANNER)
-    print(f"{C.BRIGHT_BLACK}{'━' * w}{C.R}")
+    """Print the main TESS banner using rich."""
+    banner_text = Text(BANNER, style="bright_cyan bold")
+    console.print(Panel(banner_text, subtitle="[dim]v5.0 - Agentic Developer Edition[/dim]", border_style="bright_magenta", expand=False))
 
-
-def print_divider(char="─", color=C.BRIGHT_BLACK):
-    w = get_width()
-    print(f"{color}{char * w}{C.R}")
-
-
-def animate_boot(text, delay=0.03):
-    """Animated text typing effect."""
-    for char in text:
-        sys.stdout.write(char)
-        sys.stdout.flush()
-        time.sleep(delay)
-    print()
-
-
-def print_status(label, status, ok=True):
-    """Print a status line like:  ✓ Module Name ........... ONLINE"""
-    w = get_width()
-    icon = f"{C.BRIGHT_GREEN}✓{C.R}" if ok else f"{C.BRIGHT_RED}✗{C.R}"
-    dots_len = w - len(label) - len(status) - 8
-    if dots_len < 3: dots_len = 3
-    dots = f"{C.BRIGHT_BLACK}{'·' * dots_len}{C.R}"
-    
-    if ok:
-        status_str = f"{C.BRIGHT_GREEN}{C.BOLD}{status}{C.R}"
-    else:
-        status_str = f"{C.BRIGHT_RED}{status}{C.R}"
-    
-    print(f"  {icon} {C.WHITE}{label}{C.R} {dots} {status_str}")
-
-
-def boot_sequence(comps, config_data):
-    """Print the full boot dashboard."""
-    print()
-    animate_boot(f"  {C.BRIGHT_CYAN}⚡ Initializing TESS Systems...{C.R}", delay=0.015)
-    print()
-    
-    # Module status grid
-    module_map = [
-        ("Brain (LLM)", 'brain'),
-        ("Security Engine", 'security'),
-        ("App Launcher", 'launcher'),
-        ("System Control", 'sys_ctrl'),
-        ("File Manager", 'file_mgr'),
-        ("Web Search", 'web_search'),
-        ("Knowledge Base", 'knowledge_db'),
-        ("Planner", 'planner'),
-        ("YouTube Player", 'youtube_client'),
-        ("WhatsApp", 'whatsapp'),
-        ("Voice Client", 'voice_client'),
-        ("Organizer", 'organizer'),
-        ("Coding Engine", 'coding_engine'),
-        ("Google Services", 'google_client'),
-    ]
-    
-    for label, key in module_map:
-        comp = comps.get(key)
-        if comp is not None:
-            print_status(label, "ONLINE")
-        else:
-            print_status(label, "OFFLINE", ok=False)
-        time.sleep(0.04)  # Staggered animation
-    
-    print()
-
-
-def print_provider_info(provider, model):
-    """Print LLM provider info box."""
-    print(f"  {C.BRIGHT_MAGENTA}🧠 LLM:{C.R} {C.BOLD}{C.WHITE}{provider.upper()}{C.R} {C.DIM}({model}){C.R}")
-
-
-def print_ready():
-    """Print the ready prompt header."""
-    w = get_width()
-    print(f"\n{C.BRIGHT_BLACK}{'━' * w}{C.R}")
-    print(f"  {C.BRIGHT_GREEN}{C.BOLD}⚡ TESS IS ONLINE{C.R}  {C.DIM}Type 'exit' to quit · 'help' for commands{C.R}")
-    print(f"{C.BRIGHT_BLACK}{'━' * w}{C.R}")
-
-
-def get_prompt():
-    """Return the styled user prompt string."""
-    return f"\n{C.BRIGHT_CYAN}{C.BOLD}  ❯{C.R} "
-
-
-def print_thinking():
-    """Print thinking indicator."""
-    print(f"  {C.BRIGHT_MAGENTA}◆{C.R} {C.DIM}Thinking...{C.R}", end="", flush=True)
-
+def print_thinking(msg="Thinking..."):
+    """Print thinking indicator using rich spinner."""
+    # We'll use a globally stored progress object for the thinking line
+    global _thinking_spinner
+    _thinking_spinner = Progress(
+        SpinnerColumn("dots", style="bright_magenta"),
+        TextColumn("[magenta]{task.description}"),
+        transient=True,
+        console=console
+    )
+    _thinking_spinner.start()
+    _thinking_spinner.add_task(description=msg)
 
 def clear_thinking():
     """Clear the thinking line."""
-    sys.stdout.write("\r" + " " * 40 + "\r")
-    sys.stdout.flush()
-
+    global _thinking_spinner
+    if '_thinking_spinner' in globals() and _thinking_spinner:
+        _thinking_spinner.stop()
 
 def print_tess_message(msg):
-    """Print a TESS response with styling."""
-    print(f"\n  {C.BRIGHT_CYAN}◆ TESS:{C.R} {C.WHITE}{msg}{C.R}\n")
-
+    """Print a TESS response with rich styling."""
+    console.print(f"\n[tess]◆ TESS:[/tess] {msg}", highlight=True)
 
 def print_tess_action(msg):
     """Print a TESS action notification."""
-    print(f"  {C.BRIGHT_YELLOW}▸{C.R} {C.DIM}{msg}{C.R}")
+    console.print(f"  [yellow]▸[/yellow] [dim]{msg}[/dim]")
+
+def print_plan(steps):
+    """Print an agent's execution plan."""
+    table = Table(title="AGENT PLAN", border_style="bright_magenta", show_lines=True)
+    table.add_column("#", style="dim", width=2)
+    table.add_column("Step", style="white")
+    
+    for i, step in enumerate(steps, 1):
+        table.add_row(str(i), step)
+    
+    console.print(Panel(table, border_style="bright_magenta"))
 
 
 def print_error(msg):
-    """Print an error."""
-    print(f"  {C.BRIGHT_RED}✗ ERROR:{C.R} {msg}")
-
+    """Print an error using rich."""
+    console.print(f"  [error]✗ ERROR:[/error] {msg}")
 
 def print_security_block(reason):
-    """Print a security block warning."""
-    print(f"\n  {C.BRIGHT_RED}{C.BOLD}🛡️  SECURITY BLOCK{C.R}")
-    print(f"  {C.RED}{reason}{C.R}\n")
-
+    """Print a security block warning using rich."""
+    console.print(Panel(f"[error]{reason}[/error]", title="🛡️ SECURITY BLOCK", border_style="red"))
 
 def print_warning(msg):
-    """Print a warning."""
-    print(f"  {C.BRIGHT_YELLOW}⚠{C.R} {C.YELLOW}{msg}{C.R}")
-
+    """Print a warning using rich."""
+    console.print(f"  [warning]⚠[/warning] {msg}")
 
 def print_success(msg):
-    """Print a success message."""
-    print(f"  {C.BRIGHT_GREEN}✓{C.R} {msg}")
-
+    """Print a success message using rich."""
+    console.print(f"  [success]✓[/success] {msg}")
 
 def print_info(msg):
-    """Print an info message."""
-    print(f"  {C.BRIGHT_BLUE}ℹ{C.R} {C.DIM}{msg}{C.R}")
+    """Print an info message using rich."""
+    console.print(f"  [info]ℹ[/info] [dim]{msg}[/dim]")
 
 
 def print_greeting(greeting, extras=""):
@@ -270,29 +210,25 @@ def print_fact_learned(facts):
 
 
 def print_help():
-    """Display available commands."""
-    print(f"""
-  {C.BRIGHT_CYAN}{C.BOLD}━━━ TESS COMMANDS ━━━{C.R}
-
-  {C.BRIGHT_WHITE}General{C.R}
-  {C.CYAN}exit / quit{C.R}       {C.DIM}Shutdown TESS{C.R}
-  {C.CYAN}help{C.R}              {C.DIM}Show this help menu{C.R}
-  {C.CYAN}status{C.R}            {C.DIM}Show module status{C.R}
-
-  {C.BRIGHT_WHITE}Learning{C.R}
-  {C.CYAN}learn apps{C.R}        {C.DIM}Scan installed applications{C.R}
-  {C.CYAN}learn commands{C.R}    {C.DIM}Index system commands{C.R}
-  {C.CYAN}watch <path>{C.R}      {C.DIM}Watch a directory for learning{C.R}
-
-  {C.BRIGHT_WHITE}Voice{C.R}
-  {C.CYAN}listen / voice{C.R}    {C.DIM}Start voice input{C.R}
-
-  {C.BRIGHT_WHITE}Features{C.R}
-  {C.DIM}Just type naturally! Examples:{C.R}
-  {C.WHITE}  "play lofi beats on youtube"{C.R}
-  {C.WHITE}  "send Hi to Mom on whatsapp"{C.R}
-  {C.WHITE}  "open notepad"{C.R}
-  {C.WHITE}  "list files on desktop"{C.R}
-  {C.WHITE}  "search for python tutorials"{C.R}
-  {C.WHITE}  "organize my downloads folder"{C.R}
-""")
+    """Display available commands using a rich table."""
+    table = Table(title="TESS COMMANDS", border_style="bright_cyan", show_header=True, header_style="bold white")
+    table.add_column("Category", style="dim")
+    table.add_column("Command", style="cyan")
+    table.add_column("Description", style="white")
+    
+    table.add_row("General", "exit / quit", "Shutdown TESS")
+    table.add_row("", "help", "Show this help menu")
+    table.add_row("", "status", "Show module status")
+    
+    table.add_row("Learning", "learn apps", "Scan installed applications")
+    table.add_row("", "learn commands", "Index system commands")
+    table.add_row("", "watch <path>", "Watch a directory for learning")
+    
+    table.add_row("Voice", "listen / voice", "Start voice input")
+    
+    table.add_row("Coding", "ls / analyze", "List and analyze the project")
+    table.add_row("", "grep <pattern>", "Search for text in files")
+    table.add_row("", "outline <file>", "Get the structure of a file")
+    
+    console.print(table)
+    console.print("[dim]Just type naturally for everything else! Example: 'make a todo app'[/dim]")

@@ -138,20 +138,163 @@ class CodingEngine:
             pass
         return "Failed to generate autonomous fix."
 
-    def analyze_workspace(self, path="."):
-        """Deep code analysis and summarization."""
-        target_path = os.path.join(self.workspace_root, path)
-        files = []
-        for root, _, fs in os.walk(target_path):
-            for f in fs:
-                if f.endswith(('.py', '.js', '.html', '.css', '.md')):
-                    files.append(os.path.relpath(os.path.join(root, f), self.workspace_root))
+    def grep_search(self, pattern, path=".", include_exts=None):
+        """Fast text search across files using gitignore-aware pathspec."""
+        import pathspec
+        import re
         
-        summary_prompt = f"""
-        Summarize this project workspace.
-        FILES: {', '.join(files[:20])}
-        Structure and Purpose?
-        """
+        target_path = os.path.normpath(os.path.join(self.workspace_root, path))
+        if not os.path.exists(target_path):
+            return f"Error: Path {path} not found."
+
+        # Load gitignore if exists
+        spec = None
+        gitignore_path = os.path.join(self.workspace_root, ".gitignore")
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path, "r") as f:
+                spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
+
+        results = []
+        pattern_re = re.compile(pattern, re.IGNORECASE)
+
+        for root, dirs, files in os.walk(target_path):
+            # Filtering hidden dirs and gitignored ones
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            
+            for f in files:
+                rel_path = os.path.relpath(os.path.join(root, f), self.workspace_root)
+                
+                # Check gitignore
+                if spec and spec.match_file(rel_path):
+                    continue
+                
+                # Check extensions
+                if include_exts and not any(f.endswith(ext) for ext in include_exts):
+                    continue
+
+                abs_f = os.path.join(root, f)
+                try:
+                    with open(abs_f, 'r', encoding='utf-8', errors='ignore') as f_obj:
+                        lines = f_obj.readlines()
+                        for i, line in enumerate(lines):
+                            if pattern_re.search(line):
+                                results.append(f"{rel_path}:{i+1}: {line.strip()}")
+                except Exception:
+                    continue
         
-        response = self.brain.request_completion([{"role": "system", "content": summary_prompt}])
-        return response
+        if not results:
+            return "No matches found."
+        
+        # Limit results for LLM context
+        return "\n".join(results[:50]) + (f"\n... total {len(results)} matches" if len(results) > 50 else "")
+
+    def get_file_outline(self, filename):
+        """Extract classes and functions from a Python file for mapping."""
+        import ast
+        
+        file_path = os.path.join(self.workspace_root, filename)
+        if not os.path.exists(file_path):
+            return f"Error: {filename} not found."
+        
+        if not filename.endswith('.py'):
+            return "Error: Outline only supported for .py files."
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                node = ast.parse(f.read())
+            
+            outline = []
+            for item in node.body:
+                if isinstance(item, ast.ClassDef):
+                    methods = [n.name for n in item.body if isinstance(n, ast.FunctionDef)]
+                    outline.append(f"Class: {item.name} (Methods: {', '.join(methods)})")
+                elif isinstance(item, ast.FunctionDef):
+                    outline.append(f"Function: {item.name}")
+            
+            return "\n".join(outline) if outline else "No classes or functions found."
+        except Exception as e:
+            return f"Error parsing file: {e}"
+
+    def replace_block(self, filename, search_block, replace_block):
+        """Surgical edit: replaces a specific block of text with whitespace normalization and atomic write."""
+        import tempfile
+        
+        file_path = os.path.join(self.workspace_root, filename)
+        if not os.path.exists(file_path):
+            return f"Error: {filename} not found."
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Helper to normalize whitespace for comparison
+            def normalize(text):
+                return "\n".join([line.rstrip() for line in text.strip().splitlines()])
+
+            if search_block not in content:
+                # If exact match fails, try normalized match
+                norm_search = normalize(search_block)
+                lines = content.splitlines()
+                match_found = False
+                
+                # Simple sliding window search on lines
+                search_lines = search_block.splitlines()
+                for i in range(len(lines) - len(search_lines) + 1):
+                    window = "\n".join(lines[i:i+len(search_lines)])
+                    if normalize(window) == norm_search:
+                        # Found match! Perform replacement
+                        lines[i:i+len(search_lines)] = replace_block.splitlines()
+                        content = "\n".join(lines)
+                        match_found = True
+                        break
+                
+                if not match_found:
+                    return f"Error: Search block not found in {filename}. Ensure the code block is unique and correctly copied."
+            else:
+                content = content.replace(search_block, replace_block)
+
+            # Atomic Write using a temporary file
+            fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(file_path), text=True)
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            # Replace original file with temporary file
+            os.replace(temp_path, file_path)
+            
+            return f"Successfully updated {filename} (Atomic Write)"
+        except Exception as e:
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.remove(temp_path)
+            return f"Error during replacement: {e}"
+
+    def ls_recursive(self, path="."):
+        """Tree view of the workspace."""
+        import pathspec
+        
+        target_path = os.path.normpath(os.path.join(self.workspace_root, path))
+        if not os.path.exists(target_path):
+            return f"Error: Path {path} not found."
+
+        spec = None
+        gitignore_path = os.path.join(self.workspace_root, ".gitignore")
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path, "r") as f:
+                spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
+
+        tree = []
+        for root, dirs, files in os.walk(target_path):
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            level = root.replace(target_path, '').count(os.sep)
+            indent = '  ' * level
+            folder = os.path.basename(root)
+            if folder:
+                tree.append(f"{indent}📁 {folder}/")
+            
+            sub_indent = '  ' * (level + 1)
+            for f in files:
+                rel_path = os.path.relpath(os.path.join(root, f), self.workspace_root)
+                if spec and spec.match_file(rel_path):
+                    continue
+                tree.append(f"{sub_indent}📄 {f}")
+        
+        return "\n".join(tree[:100]) # Limit output

@@ -3,8 +3,8 @@ import re
 import os
 import time
 import warnings
-warnings.filterwarnings("ignore", message=".*google.generativeai.*")
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
+# Suppress the specific FutureWarning from google-generativeai
+warnings.filterwarnings("ignore", category=FutureWarning)
 import google.generativeai as genai
 from groq import Groq
 from openai import OpenAI
@@ -35,13 +35,14 @@ class Brain:
         # Current State
         self.provider = Config.LLM_PROVIDER
         self.model = Config.LLM_MODEL
+        self.current_key_index = 0
         logger.info(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
 
     def _get_client(self, provider):
         """
-        Get a client instance using a rotated key from Config.
+        Get a client instance using the current key index for rotation.
         """
-        key = Config.get_api_key(provider)
+        key = Config.get_api_key(provider, index=self.current_key_index)
         if not key:
             return None, f"Missing API Key for {provider}"
 
@@ -85,7 +86,11 @@ class Brain:
         """Injects RAG, Skill, and User Profile context into the conversation."""
         extras = []
         
-        # User Profile Facts
+        # 0. GUARD: Skip RAG for simple greetings to prevent hallucination
+        simple_queries = ["hey", "hello", "hi", "hey buddy", "yo", "tess", "are you there"]
+        is_simple = query.lower().strip().strip("?!.") in simple_queries or len(query.strip()) < 3
+        
+        # User Profile Facts (Always helpful)
         try:
             from .user_profile import UserProfile
             profile = UserProfile()
@@ -94,8 +99,8 @@ class Brain:
                 extras.append(f"\n[USER PROFILE]\n{facts_ctx}")
         except: pass
 
-        # Memory / Knowledge DB
-        if self.knowledge_db:
+        # Memory / Knowledge DB (Only for substantive queries)
+        if self.knowledge_db and not is_simple:
             try:
                 mem = self.knowledge_db.search_memory(query, n_results=1)
                 if "No matching" not in mem:
@@ -106,7 +111,7 @@ class Brain:
                     extras.append(f"\n[DOCS]\n{rag}")
             except: pass
 
-        # Skills
+        # Skills (Always show available tools)
         if self.skill_manager:
             svs = self.skill_manager.list_skills()
             if svs: extras.append(f"\n[SKILLS] Available: {', '.join(svs)}")
@@ -120,38 +125,33 @@ class Brain:
         """
         Central execution logic with Provider Failover and Key Rotation.
         """
-        if retry_count > 3:
-            return {"action": "error", "reason": "Max LLM Retries Exceeded."}
+        if retry_count > 4:
+            return {"action": "error", "reason": "Max LLM Retries Exceeded. Please check your API keys."}
 
         # Get Client for current provider
         client, err = self._get_client(self.provider)
         if not client:
-             # Try failover?
+             # Missing key for current provider - try failover immediately
              if self.provider == "groq":
-                 logger.warning("Groq failed/missing. Switching to DeepSeek.")
+                 logger.warning("Groq key missing. Failing over to DeepSeek.")
                  self.provider = "deepseek"
                  self.model = "deepseek-coder"
                  return self._execute_llm_request(retry_count + 1)
+             elif self.provider == "deepseek":
+                 logger.warning("DeepSeek key missing. Failing over to Gemini.")
+                 self.provider = "gemini"
+                 self.model = "gemini-1.5-flash"
+                 return self._execute_llm_request(retry_count + 1)
              return {"action": "error", "reason": f"Provider Error: {err}"}
 
-        # Prepare Messages (Inject context)
+        # Prepare Messages
         messages = list(self.history)
         if self._current_context:
-            # Wrap context in clear delimiters to prevent leakage/hallucination
-            context_block = (
-                "\n\n[SEARCH_CONTEXT_START]"
-                "\nBelow is relevant information from your memory/documents. "
-                "Use it only if helpful. Do NOT copy the source paths into your JSON output."
-                f"\n{self._current_context}"
-                "\n[SEARCH_CONTEXT_END]\n\n"
-            )
+            context_block = f"\n\n[CONTEXT]\n{self._current_context}\n[END CONTEXT]\n\n"
             messages[-1]["content"] += context_block
-
 
         try:
             response_text = ""
-            
-            # --- PROVIDER SPECIFIC CALLS ---
             if self.provider in ["groq", "openai", "deepseek"]:
                 completion = client.chat.completions.create(
                     model=self.model,
@@ -160,39 +160,41 @@ class Brain:
                     stream=False
                 )
                 response_text = completion.choices[0].message.content
-
             elif self.provider == "gemini":
-                # Simplified Gemini call
                 prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
                 resp = client.generate_content(prompt)
                 response_text = resp.text
 
-            # --- PARSE AND RETURN ---
-            # Clean markdown
+            # Parse
             clean = response_text.replace("```json", "").replace("```", "").strip()
-            
-            try:
-                cmd = json.loads(clean)
-                self.history.append({"role": "assistant", "content": clean})
-                return cmd
-            except json.JSONDecodeError:
-                # Self-Correction could go here
-                return {"action": "reply_op", "content": f"JSON Error: {clean}"}
+            cmd = json.loads(clean)
+            self.history.append({"role": "assistant", "content": clean})
+            return cmd
 
         except Exception as e:
             err_msg = str(e).lower()
             logger.error(f"LLM Call Failed ({self.provider}): {e}")
             
-            # If 401 (Invalid Key), switch provider immediately to save retries
+            # If 401 (Invalid Key), it might be just THIS key or the whole provider
             if "401" in err_msg or "invalid api key" in err_msg:
-                if self.provider == "groq":
-                    logger.warning("Groq key invalid. Failing over to DeepSeek.")
-                    self.provider = "deepseek"
-                    self.model = "deepseek-coder"
-                elif self.provider == "deepseek":
-                    logger.warning("DeepSeek key invalid. Failing over to Gemini.")
-                    self.provider = "gemini"
-                    self.model = "gemini-1.5-flash"
+                # Get number of keys available for this provider
+                num_keys = len(Config._data["llm"]["keys"].get(self.provider, []))
+                
+                if self.current_key_index < num_keys - 1:
+                    # Move to the next key for the same provider
+                    self.current_key_index += 1
+                    logger.warning(f"Retrying {self.provider} with next available key (Index: {self.current_key_index})...")
+                else:
+                    # All keys for this provider failed, switch provider
+                    self.current_key_index = 0 # Reset for next provider
+                    if self.provider == "groq":
+                        logger.warning("Groq consistently failing. Failing over to DeepSeek.")
+                        self.provider = "deepseek"
+                        self.model = "deepseek-coder"
+                    elif self.provider == "deepseek":
+                        logger.warning("DeepSeek consistently failing. Failing over to Gemini.")
+                        self.provider = "gemini"
+                        self.model = "gemini-1.5-flash"
             
             return self._execute_llm_request(retry_count + 1)
 
