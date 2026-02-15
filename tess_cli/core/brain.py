@@ -175,8 +175,17 @@ class Brain:
             err_msg = str(e).lower()
             logger.error(f"LLM Call Failed ({self.provider}): {e}")
             
-            # If 401 (Invalid Key), it might be just THIS key or the whole provider
-            if "401" in err_msg or "invalid api key" in err_msg:
+            err_msg = str(e).lower()
+            logger.error(f"LLM Call Failed ({self.provider}): {e}")
+            
+            # Handle 401 (Auth) OR 404 (Model Not Found)
+            if any(x in err_msg for x in ["401", "invalid api key", "404", "not found", "does not exist"]):
+                # If it's a model error, maybe just switch model first?
+                if "model" in err_msg and self.provider == "groq" and self.model != "llama3-8b-8192":
+                    logger.warning(f"Groq Model {self.model} not found. Falling back to llama3-8b-8192.")
+                    self.model = "llama3-8b-8192"
+                    return self._execute_llm_request(retry_count + 1)
+
                 # Get number of keys available for this provider
                 num_keys = len(Config._data["llm"]["keys"].get(self.provider, []))
                 

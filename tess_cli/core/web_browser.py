@@ -102,108 +102,35 @@ class WebBrowser:
 
     def search_google(self, query, headless=True):
         """
-        Performs a DuckDuckGo Search (HTML version) to avoid CAPTCHAs.
+        Performs a Web Search using DuckDuckGo API (via duckduckgo-search).
+        Much faster and more reliable than headless browsing.
         """
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=headless)
-                page = browser.new_page()
+            from duckduckgo_search import DDGS
+            
+            results = []
+            with DDGS() as ddgs:
+                # Get up to 5 results
+                ddg_gen = ddgs.text(query, max_results=5)
+                for r in ddg_gen:
+                    title = r.get('title', 'No Title')
+                    link = r.get('href', 'N/A')
+                    snippet = r.get('body', '')
+                    results.append(f"🔹 **{title}**\n{snippet}\n[Link]({link})")
+            
+            if not results:
+                return "No results found."
                 
-                # Use DuckDuckGo HTML (faster, no ads, easier to scrape)
-                page.goto("https://html.duckduckgo.com/html/", timeout=60000)
-                
-                # Type Query
-                page.fill('input[name="q"]', query)
-                page.keyboard.press("Enter")
-                
-                # Wait for results
-                try:
-                    page.wait_for_selector(".result", timeout=15000)
-                except:
-                    return "No results found or connection timeout."
-                
-                results = []
-                # DDG HTML Result Structure
-                result_divs = page.locator('.result').all()
-                
-                for div in result_divs[:5]: # Top 5
-                    try:
-                        title_el = div.locator(".result__title").first
-                        link_el = div.locator(".result__url").first
-                        snippet_el = div.locator(".result__snippet").first
-                        
-                        if title_el.count() > 0:
-                            title = title_el.inner_text().strip()
-                            # DDG HTML links are often relative or redirects, but usually the text is usable
-                            # Actually result__url in HTML version is the display URL, the real link is in 'a.result__a'
-                            link_a = div.locator("a.result__a").first
-                            link = link_a.get_attribute("href") if link_a.count() > 0 else "N/A"
-                            
-                            snippet = snippet_el.inner_text().strip() if snippet_el.count() > 0 else ""
-                            
-                            results.append(f"🔹 **{title}**\n{snippet}\n[Link]({link})")
-                    except:
-                        continue
-                        
-                browser.close()
-                
-                if not results:
-                    return "No results found."
-                    
-                return "\n\n".join(results)
+            return "\n\n".join(results)
                 
         except Exception as e:
-            logger.error(f"Search Sync Error: {e}")
-            return f"Search failed: {e}"
+            logger.error(f"Search Error: {e}")
+            return f"Search failed: {e}. Ensure 'duckduckgo-search' is installed."
 
     async def search_async(self, query):
         """
-        Async DuckDuckGo Search (for Telegram).
+        Async Web Search (for Telegram) using DuckDuckGo.
         """
-        try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                page = await browser.new_page()
-                
-                await page.goto("https://html.duckduckgo.com/html/", timeout=60000)
-                
-                await page.fill('input[name="q"]', query)
-                await page.keyboard.press("Enter")
-                
-                try:
-                    await page.wait_for_selector(".result", timeout=15000)
-                except:
-                    await browser.close()
-                    return "No results found."
-                
-                results = []
-                result_divs = await page.locator('.result').all()
-                
-                for div in result_divs[:5]:
-                    try:
-                        title_el = div.locator(".result__title").first
-                        snippet_el = div.locator(".result__snippet").first
-                        link_a = div.locator("a.result__a").first
-                        
-                        if await title_el.count() > 0:
-                            title = await title_el.inner_text()
-                            title = title.strip()
-                            
-                            link = await link_a.get_attribute("href") if await link_a.count() > 0 else "N/A"
-                            snippet = await snippet_el.inner_text() if await snippet_el.count() > 0 else ""
-                            snippet = snippet.strip()
-                            
-                            results.append(f"🔹 **{title}**\n{snippet}\n[Link]({link})")
-                    except:
-                        continue
-                        
-                await browser.close()
-                
-                if not results:
-                    return "No results found."
-                    
-                return "\n\n".join(results)
-                
-        except Exception as e:
-            logger.error(f"Search Async Error: {e}")
-            return f"Search failed: {e}"
+        # DDGS is synchronous but fast. We can wrap it or just run it.
+        # For true async, we'd loop. For now, running sync is fine as it's an HTTP call.
+        return self.search_google(query)
