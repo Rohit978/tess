@@ -51,7 +51,9 @@ class Config:
             "gmail": False,
             "calendar": False,
             "media": True,
-            "web_scraping": True
+            "web_scraping": True,
+            "privacy_aura": False,     # [EXPERIMENTAL] Hide secrets on stranger detection
+            "digital_twin": False      # [EXPERIMENTAL] Command simulation sandbox
         },
         "advanced": {
             "deep_research": True,
@@ -221,6 +223,9 @@ class Config:
             "  * ls(path): Tree view of directory.\n"
             "- git_op(sub_action, message): status, commit, push, log, diff.\n"
             "\nREMEMBER: Use code_op sub_actions for surgical developer tasks."
+            "- experimental_op(sub_action, target): \n"
+            "  * toggle_privacy: enable/disable Privacy Aura.\n"
+            "  * simulate: Use target as command to run in Digital Twin sandbox."
         )
 
     SYSTEM_PROMPT = "" # Kept for backward compatibility but get_system_prompt should be used.

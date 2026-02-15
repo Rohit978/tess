@@ -138,6 +138,8 @@ def main():
     Librarian = safe_import("tess_cli.core.librarian", "Librarian")
     TessScheduler = safe_import("tess_cli.core.scheduler", "TessScheduler")
     SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
+    Guardian = safe_import("tess_cli.core.guardian", "Guardian")
+    Sandbox = safe_import("tess_cli.core.sandbox", "Sandbox")
     print()
 
 
@@ -228,6 +230,17 @@ def main():
         librarian = Librarian(knowledge_db, watch_path=watch_path)
         print_info("📚 Librarian (Active Learning) starting...")
         librarian.start()
+
+    # ─── EXPERIMENTAL MODULES ───
+    if Guardian and Config.is_module_enabled("privacy_aura"):
+        comps['guardian'] = Guardian(comps['sys_ctrl'])
+    else:
+        comps['guardian'] = None
+        
+    if Sandbox and Config.is_module_enabled("digital_twin"):
+        comps['sandbox'] = Sandbox(brain)
+    else:
+        comps['sandbox'] = None
 
     # Scheduler
     if TessScheduler:

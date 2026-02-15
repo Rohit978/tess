@@ -73,6 +73,31 @@ def process_action(action_data: dict, components: dict, brain):
             res = components['launcher'].launch_app(app_name)
             result = out(res)
 
+    # ─── EXPERIMENTAL (Privacy Aura / Digital Twin) ───
+    elif action == "experimental_op":
+        sub = action_data.get("sub_action")
+        target = action_data.get("target")
+
+        if sub == "toggle_privacy":
+            g = components.get('guardian')
+            if not g: result = out("Privacy Aura module is disabled or failed to initialize.")
+            else:
+                enable = "enable" in str(target).lower() or "on" in str(target).lower()
+                result = g.toggle(enable)
+                out(result)
+        
+        elif sub == "simulate":
+            s = components.get('sandbox')
+            if not s: result = out("Digital Twin sandbox is disabled.")
+            else:
+                sim_res = s.simulate_command(target)
+                result = f"🔮 [DIGITAL TWIN PREDICTION]\nCommand: {sim_res['command']}\nSafety: {sim_res['safety_rating']}\n\nOutcome: {sim_res['prediction']}"
+                from rich.panel import Panel
+                from .terminal_ui import console
+                console.print(Panel(result, title="SIMULATION RESULTS", border_style="cyan"))
+        else:
+            result = out(f"Unknown experimental sub-action: {sub}")
+
     # 4. EXECUTE COMMAND
     elif action == "execute_command":
         exe = components.get('executor')
