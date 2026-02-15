@@ -312,16 +312,16 @@ def main():
                 continue
             
             # Persona Switching
-                        brain.history[0]["content"] = Config.get_system_prompt(target)
-                        
-                        print_success(f"Persona switched to: [bold magenta]{target.upper()}[/bold magenta]")
-                        # Trigger a greeting from the new persona
-                        response = brain.generate_command(f"Introduce yourself as {target}")
-                        print_tess_message(response.get("content", "Hello!"))
-                    else:
-                        print_warning(f"Unknown persona. Options: {', '.join(Config.PERSONALITY_PROMPTS.keys())}")
-                except IndexError:
-                    print_info(f"Current persona: [bold]{user_profile.personality}[/bold]. Usage: persona <name>")
+            if user_input.lower().startswith("persona "):
+                target = user_input[8:].strip().lower()
+                if target in Config.PERSONALITY_PROMPTS:
+                    brain.personality = target
+                    brain.history[0]["content"] = Config.get_system_prompt(target)
+                    print_success(f"Persona switched to: [bold magenta]{target.upper()}[/bold magenta]")
+                    if target == "soul":
+                        print_info("✨ Heart-to-Heart mode enabled. TESS is now more empathetic.")
+                else:
+                    print_warning(f"Unknown personality: {target}. Available: {', '.join(Config.PERSONALITY_PROMPTS.keys())}")
                 continue
             
             # Voice Input
