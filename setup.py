@@ -25,9 +25,8 @@ setup(
         "sounddevice>=0.4.6",
         "scipy>=1.11.0",
         "openai-whisper>=20231117",
-        "watchdog",
         "schedule",
-        "psutil"
+        "duckduckgo-search>=5.0.0"
     ],
     entry_points={
         'console_scripts': [

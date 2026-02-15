@@ -62,7 +62,8 @@ def main():
     )
     from .core.user_profile import UserProfile
 
-    # 0. Check for Setup/Init (FAST EXIT)
+    # 0. Check for Setup/Init (FAST EXIT) ⚡
+    # If the user runs 'tess init', we launch the wizard immediately.
     if len(sys.argv) > 1 and sys.argv[1].lower() == "init":
         try:
             from .core.setup_wizard import SetupWizard
@@ -72,13 +73,27 @@ def main():
             print_info("Ensure dependencies are installed: pip install -r requirements.txt")
         return
 
-    # Show the awesome banner
+    # Show the awesome banner 🎨
     print_banner()
 
     # Add paths
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-    # 1. Import ESSENTIAL modules (these MUST work)
+    # 🛡️ GLOBAL SAFETY NET: Catch unhandled crashes
+    def global_exception_handler(exctype, value, tb):
+        """Catches any nasty bugs that slip through the cracks."""
+        if exctype == KeyboardInterrupt:
+            # Let Ctrl+C exit normally
+            sys.__excepthook__(exctype, value, tb)
+            return
+            
+        print_error(f"🙈 Oops! An unhandled error occurred: {value}")
+        logger.error("Global Exception Caught:", exc_info=(exctype, value, tb))
+        # Don't exit! Try to keep running if possible, or just log.
+    
+    sys.excepthook = global_exception_handler
+
+    # 1. Import ESSENTIAL modules (The Brains & Heart of TESS)
     try:
         from .core.profile_manager import ProfileManager
         from .core.orchestrator import process_action
@@ -91,8 +106,7 @@ def main():
         logger = setup_logger("Main")
     except Exception as e:
         print_error(f"Failed to import essential modules: {e}")
-        import traceback
-        traceback.print_exc()
+        # Only crash if we can't even start the brain
         sys.exit(1)
 
     # 2. Import OPTIONAL modules individually (each can fail without killing TESS)
