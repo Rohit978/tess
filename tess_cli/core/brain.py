@@ -146,9 +146,18 @@ class Brain:
 
         # Prepare Messages
         messages = list(self.history)
+        
+        # INJECT CONTEXT AS SYSTEM MESSAGE (Better adherence)
         if self._current_context:
-            context_block = f"\n\n[CONTEXT]\n{self._current_context}\n[END CONTEXT]\n\n"
-            messages[-1]["content"] += context_block
+            context_msg = {
+                "role": "system", 
+                "content": f"[ADDITIONAL CONTEXT]\n{self._current_context}\n[END CONTEXT]\nUse this context to answer the user, but DO NOT output it."
+            }
+            # Insert before the last user message
+            if len(messages) > 0 and messages[-1]["role"] == "user":
+                messages.insert(-1, context_msg)
+            else:
+                messages.append(context_msg)
 
         try:
             response_text = ""
@@ -175,8 +184,27 @@ class Brain:
             err_msg = str(e).lower()
             logger.error(f"LLM Call Failed ({self.provider}): {e}")
             
-            err_msg = str(e).lower()
-            logger.error(f"LLM Call Failed ({self.provider}): {e}")
+            # Handle 400 (JSON Validation Failed) - RETRY WITH FORCE JSON
+            if "400" in err_msg or "json_validate_failed" in err_msg:
+                 logger.warning(f"JSON Validation Failed. Retrying with strict enforcement...")
+                 # Append a forceful system reminder/user tip to the END of messages
+                 messages.append({"role": "user", "content": "PREVIOUS RESPONSE FAILED JSON VALIDATION. YOU MUST OUTPUT RAW JSON ONLY. NO TEXT. NO MARKDOWN."})
+                 try:
+                     # Retry ONCE with the same client
+                     retry_completion = client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        response_format={"type": "json_object"},
+                        stream=False
+                     )
+                     response_text = retry_completion.choices[0].message.content
+                     clean = response_text.replace("```json", "").replace("```", "").strip()
+                     cmd = json.loads(clean)
+                     self.history.append({"role": "assistant", "content": clean})
+                     return cmd
+                 except Exception as final_e:
+                     logger.error(f"Retry failed: {final_e}")
+                     # let it fall through to main retry loop or return error
             
             # Handle 401 (Auth) OR 404 (Model Not Found)
             if any(x in err_msg for x in ["401", "invalid api key", "404", "not found", "does not exist"]):
