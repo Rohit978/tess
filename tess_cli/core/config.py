@@ -179,6 +179,8 @@ class Config:
             "Verify tools before mentioning them.\n"
             "\n[WINDOWS COMMAND CHEATSHEET]\n"
             "- Bluetooth: 'Get-Service bthserv | Stop-Service' (Stop) or 'Start-Service' (Start). \n"
+            "  * NOTE: System actions like stopping services REQUIRE Administrative privileges.\n"
+            "  * If 'Access Denied' or 'Cannot open bthserv', inform the user to run TESS in an Admin Terminal.\n"
             "- Display: 'Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods' \n"
             "- Audio: 'Set-AudioDevice' (if module installed) or 'nircmd' if available.\n"
             "DO NOT hallucinate cmdlets like 'Disable-BluetoothAdapter'. If unsure, use 'execute_command' to search for a solution first.\n"
