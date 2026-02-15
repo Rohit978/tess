@@ -91,7 +91,15 @@ class CommandIndexer:
         """Runs <cmd> --help to get usage info."""
         try:
             # Timeout to prevent hanging on interactive apps
-            result = subprocess.run([name, "--help"], capture_output=True, text=True, timeout=3)
+            # Fix: Force UTF-8 and ignore errors to prevent crashes on Windows (cp1252)
+            result = subprocess.run(
+                [name, "--help"], 
+                capture_output=True, 
+                text=True, 
+                encoding='utf-8', 
+                errors='ignore', 
+                timeout=3
+            )
             return result.stdout.strip()[:2000] # Limit to 2000 chars
         except subprocess.TimeoutExpired:
             return "Help command timed out."
@@ -100,7 +108,14 @@ class CommandIndexer:
         except Exception:
             try:
                 # Try /? for windows native
-                result = subprocess.run([name, "/?"], capture_output=True, text=True, timeout=3)
+                result = subprocess.run(
+                    [name, "/?"], 
+                    capture_output=True, 
+                    text=True, 
+                    encoding='utf-8', 
+                    errors='ignore', 
+                    timeout=3
+                )
                 return result.stdout.strip()[:2000]
             except:
                 return "No help output available."

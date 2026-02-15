@@ -174,19 +174,30 @@ class Brain:
                 resp = client.generate_content(prompt)
                 response_text = resp.text
 
-            # Parse
-            clean = response_text.replace("```json", "").replace("```", "").strip()
-            cmd = json.loads(clean)
+             # Parse - ROBUST JSON EXTRACTION
+            try:
+                # 1. Try direct clean first
+                clean = response_text.replace("```json", "").replace("```", "").strip()
+                cmd = json.loads(clean)
+            except json.JSONDecodeError:
+                # 2. Fallback: Extract first JSON object using Regex
+                match = re.search(r"(\{.*\})", response_text, re.DOTALL)
+                if match:
+                    clean = match.group(1)
+                    cmd = json.loads(clean)
+                else:
+                    raise ValueError(f"No JSON found in response: {response_text[:100]}...")
+
             self.history.append({"role": "assistant", "content": clean})
             return cmd
 
         except Exception as e:
             err_msg = str(e).lower()
-            logger.error(f"LLM Call Failed ({self.provider}): {e}")
             
             # Handle 400 (JSON Validation Failed) - RETRY WITH FORCE JSON
-            if "400" in err_msg or "json_validate_failed" in err_msg:
-                 logger.warning(f"JSON Validation Failed. Retrying with strict enforcement...")
+            # Even with regex, if it's malformed, we retry.
+            if "400" in err_msg or "json" in err_msg or "valueerror" in err_msg:
+                 logger.warning(f"JSON Parsing Failed ({e}). Retrying with strict enforcement...")
                  # Append a forceful system reminder/user tip to the END of messages
                  messages.append({"role": "user", "content": "PREVIOUS RESPONSE FAILED JSON VALIDATION. YOU MUST OUTPUT RAW JSON ONLY. NO TEXT. NO MARKDOWN."})
                  try:
