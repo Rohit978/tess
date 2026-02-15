@@ -27,8 +27,39 @@ class SetupWizard:
     def run(self):
         print("\n🧙‍♂️  TESS TERMINAL PRO - SETUP WIZARD (v5.0)")
         print("==========================================")
-        print("Prepare your API keys. Let's configure your AI Agent.\n")
+        
+        while True:
+            print("\nMAIN MENU:")
+            print("  [1] Intelligence Engine (LLM Keys/Models)")
+            print("  [2] Security Settings")
+            print("  [3] Core Features (Memory, Web, etc.)")
+            print("  [4] Communication (WhatsApp, Gmail)")
+            print("  [5] Media & Web (YouTube, Scraping)")
+            print("  [6] Advanced AI (Research, Coding)")
+            print("  [7] Integrations (Telegram, Librarian)")
+            print("  [8] Run Full Setup Wizard (All Steps)")
+            print("  [0] Save & Exit")
+            
+            choice = self._input("\nSelect Option", "0")
+            
+            if choice == "1": self._setup_llm()
+            elif choice == "2": self._setup_security()
+            elif choice == "3": self._setup_core_features()
+            elif choice == "4": self._setup_communication()
+            elif choice == "5": self._setup_media_web()
+            elif choice == "6": self._setup_ai_features()
+            elif choice == "7": self._setup_integrations()
+            elif choice == "8": self.run_full_setup()
+            elif choice == "0": 
+                self._save_config()
+                print("\n✅ Configuration Saved. Run 'tess' to start.")
+                break
+            else:
+                print("Invalid choice. Try again.")
 
+    def run_full_setup(self):
+        """Runs the complete linear wizard."""
+        print("\n🚀 Starting Full Setup...")
         self._setup_llm()
         self._setup_security()
         self._setup_core_features()
@@ -36,9 +67,6 @@ class SetupWizard:
         self._setup_media_web()
         self._setup_ai_features()
         self._setup_integrations()
-
-        self._save_config()
-        print("\n✅ Setup Complete! Run 'tess' to start.")
 
     def _input(self, prompt, default=None):
         """Helper for input with default."""

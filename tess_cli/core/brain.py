@@ -140,7 +140,7 @@ class Brain:
              elif self.provider == "deepseek":
                  logger.warning("DeepSeek key missing. Failing over to Gemini.")
                  self.provider = "gemini"
-                 self.model = "gemini-1.5-flash"
+                 self.model = "gemini-2.0-flash"
                  return self._execute_llm_request(retry_count + 1)
              return {"action": "error", "reason": f"Provider Error: {err}"}
 
@@ -214,9 +214,9 @@ class Brain:
                         logger.warning(f"Groq Model {self.model} not found. Falling back to llama3-8b-8192.")
                         self.model = "llama3-8b-8192"
                         return self._execute_llm_request(retry_count + 1)
-                    elif self.provider == "gemini" and self.model != "gemini-1.5-flash":
-                        logger.warning(f"Gemini Model {self.model} not found/supported. Falling back to gemini-1.5-flash.")
-                        self.model = "gemini-1.5-flash"
+                    elif self.provider == "gemini" and self.model != "gemini-2.0-flash":
+                        logger.warning(f"Gemini Model {self.model} not found/supported. Falling back to gemini-2.0-flash.")
+                        self.model = "gemini-2.0-flash"
                         return self._execute_llm_request(retry_count + 1)
 
                 # Get number of keys available for this provider
@@ -236,7 +236,7 @@ class Brain:
                     elif self.provider == "deepseek":
                         logger.warning("DeepSeek consistently failing. Failing over to Gemini.")
                         self.provider = "gemini"
-                        self.model = "gemini-1.5-flash"
+                        self.model = "gemini-2.0-flash"
             
             return self._execute_llm_request(retry_count + 1)
 
