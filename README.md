@@ -4,11 +4,11 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Active-green?style=for-the-badge)
-![AI](https://img.shields.io/badge/AI-Gemini%201.5%20Pro-purple?style=for-the-badge)
+![AI](https://img.shields.io/badge/AI-Multi%20Model-purple?style=for-the-badge)
 
 **TESS** (Terminal Embedded System Supervisor) is a **Hybrid AI Agent** capable of controlling your OS, managing files, automating workflows, and browsing the web—all from a simple command-line interface.
 
-It combines **Local Execution** (PowerShell, Python) with **Cloud Intelligence** (Gemini 1.5 Pro) to deliver fast, secure, and intelligent automation.
+It combines **Local Execution** (PowerShell, Python) with **Cloud Intelligence** (Gemini, OpenAI, Groq, or Local LLMs) to deliver fast, secure, and intelligent automation.
 
 ---
 
@@ -31,7 +31,7 @@ It combines **Local Execution** (PowerShell, Python) with **Cloud Intelligence**
 - **Manipulate:** Merge (`merge a.pdf, b.pdf`), Split (`split pages 1-3`), and Extract Text.
 
 ### 🧠 Enhanced Brain
-- **Model:** Upgraded to **Gemini 1.5 Pro** for superior reasoning.
+- **Models:** Upgraded support for **High-Reasoning Models** (e.g., Gemini 1.5 Pro, GPT-4o) for superior logic.
 - **Memory:** Context window expanded to 100 turns (remembers context better during retries).
 - **Notifications:** Native Windows 11 Toast notifications when tasks complete.
 
@@ -75,7 +75,7 @@ playwright install
 ```
 
 ### 2. Initialize
-Run the setup wizard to configure your **Gemini API Key**:
+Run the setup wizard to configure your **API Keys** (Gemini, OpenAI, Groq, etc.):
 ```bash
 tess init
 ```
@@ -122,7 +122,7 @@ Delete `~/.tess/config.json` and restart TESS.
 **"YouTube opens search instead of playing"**
 - TESS v5.0 strictly separates `youtube_op` (Play) from `web_search_op` (Research). Ensure you say "play [song]".
 
-**"Gemini Rate Limit Exceeded"**
+**"Rate Limit Exceeded"**
 - We've added a smart backoff (10s wait). Just wait a moment, it will retry automatically.
 
 ---
