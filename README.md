@@ -23,6 +23,15 @@ It combines **Local LLMs** (via Ollama) and **Cloud APIs** (Groq, OpenAI, Gemini
 -   **Page Scraping:** extract text and data from any URL.
 -   **Screenshots:** Capture full-page screenshots of websites.
 -   **YouTube Player:** Play music/videos directly in the background (`play [song]`).
+-   **Stunning Presentations:** Generate `.pptx` or `.md` (Marp) slide decks from any topic (`create a presentation on AI`).
+
+### 📄 Advanced Document Processing
+-   **PDF Master:** Merge, split, extract text, or **create** PDFs from scratch natively.
+-   **Code Processing:** Auto-scaffold projects or refactor large files with AI.
+
+### 🧪 Digital Twin (Multiverse Sandbox)
+-   **Isolated Execution:** Run risky commands in a disposable **Docker** container or restricted subprocess.
+-   **Predictive Simulation:** Ask "What if I run this?" to see side effects before they happen.
 
 ### 📂 Intelligent File Management
 -   **Active Learning (Librarian):** TESS watches your project folders and learns from your code automatically.
@@ -100,7 +109,14 @@ tess
 **Web & Research:**
 > "Research the history of Quantum Computing (Depth: 2)."
 > "Who is the CEO of NVIDIA?"
-> "Play 'Lo-Fi Hip Hop' on YouTube."
+**Simulated Execution (Digital Twin):**
+> "Simulate running `rm -rf /`."
+> "What would happen if I killed the explorer.exe process?"
+
+**Presentations & Documents:**
+> "Create a 5-slide technical presentation about Quantum Computing in 'tech' style."
+> "Merge all PDFs in the current folder into 'report.pdf'."
+> "Research Narendra Modi and create a PDF on his life."
 
 **Coding & Files:**
 > "Create a Python script to calculate Fibonacci numbers."
