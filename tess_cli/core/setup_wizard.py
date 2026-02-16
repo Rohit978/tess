@@ -37,11 +37,18 @@ class SetupWizard:
         # 2. Notifications
         self.config["advanced"]["notifications"] = self._bool_input("Enable Windows Toast Notifications?", True)
         
-        # 3. Personality (Updates UserProfile)
         try:
             from .user_profile import UserProfile
             profile = UserProfile()
             
+            # 3. User Name (Crucial for WhatsApp Persona)
+            print(f"\nYour Name (Current: {profile.name or 'Not Set'}):")
+            new_name = self._input("Enter Name", profile.name or "User")
+            if new_name:
+                profile.data["name"] = new_name
+                profile.save()
+                print(f"  >> Name set to: {new_name}")
+
             print("\nSelect TESS Personality:")
             print("  [1] Casual (Default)")
             print("  [2] Professional (Concise)")

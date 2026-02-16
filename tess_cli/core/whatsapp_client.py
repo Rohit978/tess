@@ -223,15 +223,20 @@ class WhatsAppClient:
                                         logger.info("Generating reply with Style Adaptation...")
                                         
                                         mission_prompt = f" MISSION: {mission}" if mission else ""
+                                        # Dynamic Persona
+                                        user_name = "User"
+                                        if hasattr(self.brain, 'profile') and self.brain.profile and self.brain.profile.name:
+                                            user_name = self.brain.profile.name
+                                        
                                         chat_prompt = f"""
-                                        You are Rohit, the owner of this phone. You are texting on WhatsApp.{mission_prompt}
+                                        You are {user_name}, the owner of this phone. You are texting on WhatsApp.{mission_prompt}
                                         
                                         RECENT HISTORY:
                                         {style_context[-1000:]}
                                         
                                         PARTNER JUST SAID: "{text}"
                                         
-                                        YOUR GOAL: Reply naturally as Rohit. be casual, use slang if appropriate.
+                                        YOUR GOAL: Reply naturally as {user_name}. be casual, use slang if appropriate.
                                         CRITICAL:
                                         1. You are NOT an AI. Do NOT call yourself TESS.
                                         2. You are NOT an assistant. Do NOT offer to help or execute commands.
