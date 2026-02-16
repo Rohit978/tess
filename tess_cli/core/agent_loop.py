@@ -62,6 +62,15 @@ class AgenticLoop:
                 # 3. Check for completion signal
                 if action == "final_reply" or action == "reply_op":
                     process_action(response, self.components, self.brain)
+                    
+                    # 🔔 Notification on completion
+                    if Config._data["advanced"].get("notifications", True):
+                        from .notifier import Notifier
+                        content = response.get("content", "Task Complete")
+                        # Truncate for long messages
+                        short_msg = (content[:100] + '...') if len(content) > 100 else content
+                        Notifier.notify("TESS: Task Complete ✅", short_msg)
+                        
                     break
 
                 # 3. Execute action

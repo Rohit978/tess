@@ -3,6 +3,7 @@ import time
 import os
 import threading
 from playwright.sync_api import sync_playwright
+from .terminal_ui import C
 
 logger = logging.getLogger("YouTubeClient")
 
@@ -24,80 +25,136 @@ class YouTubeClient:
         if not os.path.exists(self.user_data_dir):
             os.makedirs(self.user_data_dir)
 
+    def is_page_active(self):
+        try:
+            return self.page and not self.page.is_closed()
+        except:
+            return False
+
     def start_session(self):
         """Starts the browser session if not already running."""
-        if self.page and not self.page.is_closed():
+        if self.is_page_active():
             return
 
-        logger.info("Starting YouTube Session...")
+        print(f"  {C.DIM}🌐 Starting YouTube Session (Headless={self.headless})...{C.R}")
         self.playwright = sync_playwright().start()
         
         # Launch persistent context
-        self.context = self.playwright.chromium.launch_persistent_context(
-            user_data_dir=self.user_data_dir,
-            headless=self.headless,
-            args=["--disable-blink-features=AutomationControlled"] # Reduce detection
-        )
+        try:
+            self.context = self.playwright.chromium.launch_persistent_context(
+                user_data_dir=self.user_data_dir,
+                headless=self.headless,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-web-security",
+                    "--disable-features=IsolateOrigins,site-per-process"
+                ]
+            )
+        except Exception as e:
+            print(f"  {C.RED}❌ Failed to launch browser: {e}{C.R}")
+            raise e
         
         self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
-        self.page.goto("https://www.youtube.com")
+        print(f"  {C.DIM}🌐 Navigating to YouTube...{C.R}")
+        print(f"  {C.CYAN}💡 TIP: Look for the Chromium icon in your taskbar if you don't see the window!{C.R}")
+        self.page.goto("https://www.youtube.com", timeout=60000)
+        
+        # Handle Cookie Consent if it appears
+        try:
+            # Check for "Before you continue to YouTube" or "I agree" buttons
+            # Common selectors for consent buttons
+            consent_selectors = [
+                'button[aria-label="Accept all"]',
+                'button[aria-label="Accept the use of cookies and other data for the purposes described"]',
+                '#content .vjs-button',
+                'button:has-text("Accept all")',
+                'button:has-text("I agree")'
+            ]
+            
+            for selector in consent_selectors:
+                btn = self.page.locator(selector)
+                if btn.count() > 0:
+                    logger.info(f"Found consent button: {selector}")
+                    btn.click()
+                    time.sleep(1)
+                    break
+        except Exception as ce:
+            logger.debug(f"Consent check skipped/failed: {ce}")
+
         self.is_running = True
+
         logger.info("YouTube Session Started.")
 
     def play_video(self, query):
         """Searches for a video and plays the first result."""
         try:
-            self.start_session()
+            # 1. Check if browser is alive, otherwise restart
+            if not self.is_page_active():
+                self.start_session()
             
-            logger.info(f"Searching for: {query}")
+            # 2. Ensure we are on YouTube (prevent sticking on old page or about:blank)
+            try:
+                if "youtube.com" not in self.page.url:
+                    print(f"  {C.DIM}🌐 Refreshing YouTube...{C.R}")
+                    self.page.goto("https://www.youtube.com", timeout=30000)
+            except: pass
+            
+            print(f"  {C.DIM}🔎 YouTube Search: {query}{C.R}")
             
             # Search Input - Try robust selectors
-            # Wait for any search input to appear first
-            try:
-                self.page.wait_for_selector('input[name="search_query"], input#search', timeout=10000)
-            except:
-                logger.warning("Search input not found within timeout.")
-
-            # 1. Standard search input
             search_input = self.page.locator('input[name="search_query"]').first
-            
-            # 2. Fallback
             if not search_input.is_visible():
                 search_input = self.page.locator('input#search').first
-                
+            
+            if not search_input.is_visible():
+                # Try clicking the search icon first (mobile view or collapsed)
+                search_icon = self.page.locator('button[aria-label="Search"]').first
+                if search_icon.is_visible():
+                    search_icon.click()
+                    time.sleep(0.5)
+            
+            if not search_input.is_visible():
+                print(f"  {C.RED}❌ Search input still not visible. Page might be blocked or changed.{C.R}")
+                return "Error: Could not find search input."
+
             search_input.click()
             search_input.fill(query)
             search_input.press("Enter")
             
             # Wait for results to load
-            logger.info("Waiting for search results...")
+            print(f"  {C.DIM}⏳ Waiting for search results...{C.R}")
             try:
-                self.page.wait_for_selector('ytd-video-renderer', timeout=15000)
+                self.page.wait_for_selector('ytd-video-renderer, #video-title', timeout=15000)
             except Exception as e:
-                logger.error(f"Search results didn't load: {e}")
-                return f"No results for '{query}'"
+                print(f"  {C.RED}❌ Search results didn't load in time.{C.R}")
+                return f"No results found for '{query}'"
 
             # Click first video result
-            # We want the first 'ytd-video-renderer' which is a real video results
-            video_title = self.page.locator("ytd-video-renderer #video-title").first
+            # We want the first REAL video, not a shelf or ad
+            video_titles = self.page.locator("ytd-video-renderer #video-title")
             
-            # Wait for it to be visible
-            video_title.wait_for(state="visible", timeout=10000)
+            # Wait for at least one
+            video_titles.first.wait_for(state="visible", timeout=10000)
             
-            if video_title.count() > 0:
-                title_text = video_title.inner_text().strip()
-                logger.info(f"Playing: {title_text}")
-                video_title.click()
+            if video_titles.count() > 0:
+                first_video = video_titles.first
+                title_text = first_video.inner_text().strip()
+                print(f"  {C.GREEN}▶️ Found video: {title_text}{C.R}")
+                first_video.click()
+                return f"Playing: {title_text}"
 
             else:
-                logger.warning("No video results found.")
+                print(f"  {C.YELLOW}⚠️ No video titles found in results.{C.R}")
                 return "No video results found."
                 
-            return f"Playing: {title_text}"
-            
         except Exception as e:
-            logger.error(f"Error playing video: {e}")
+            print(f"  {C.RED}🔥 Error in play_video: {e}{C.R}")
+            import traceback
+            traceback.print_exc()
             return f"Error: {e}"
+
 
     def control(self, action):
         """

@@ -4,6 +4,7 @@ import time
 import queue
 import threading
 from .logger import setup_logger
+from .terminal_ui import C
 
 logger = setup_logger("WhatsAppClient")
 
@@ -52,8 +53,16 @@ class WhatsAppClient:
         
         # Auto-start monitor if not running
         if not self.monitor_thread or not self.monitor_thread.is_alive():
+            print(f"  {C.DIM}🌐 Launching WhatsApp Monitor...{C.R}")
             self.monitor_chat(contact)
-            return f"Opening WhatsApp to send message to {contact}..."
+            
+            # Wait for it to actually start (hacky but effective)
+            for _ in range(10):
+                if self.monitor_thread and self.monitor_thread.is_alive():
+                    return f"WhatsApp launching... Message queued for {contact}."
+                time.sleep(0.5)
+            
+            return "Error: WhatsApp thread failed to start."
         
         return f"Message queued for {contact}."
 
@@ -72,17 +81,25 @@ class WhatsAppClient:
                 # Add microphone and camera permissions for calls
                 # Reverting to Windows Chrome but we will use specific selectors to find the Call dropdown
                 # The 'Get App' popup is the main blocker, but first we need to CLICK the button.
+                print(f"  {C.DIM}🌐 Launching WhatsApp Browser...{C.R}")
+                
+                # Check for existing context/page to prevent double launch
+                if hasattr(self, 'page') and self.page and not self.page.is_closed():
+                     print(f"  {C.DIM}🌐 WhatsApp Browser already active.{C.R}")
+                     return
+
                 browser = p.chromium.launch_persistent_context(
                     user_data_dir=self.user_data_dir,
                     headless=False,
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                     viewport={"width": 1280, "height": 720},
-                    args=["--disable-blink-features=AutomationControlled", "--start-maximized"],
+                    args=["--disable-blink-features=AutomationControlled", "--start-maximized", "--no-sandbox"],
                     permissions=["microphone", "camera"]
                 )
                 
                 page = browser.new_page()
-                page.goto("https://web.whatsapp.com")
+                print(f"  {C.DIM}🌐 Navigating to WhatsApp Web...{C.R}")
+                page.goto("https://web.whatsapp.com", timeout=60000)
                 
                 # ... (Login Logic Skipped for brevity in replacement, assume unchanged) ...
                 # Actually I must include it or I replace too much. 
@@ -104,7 +121,7 @@ class WhatsAppClient:
                     time.sleep(30)
                 
                 def open_chat(name):
-                    logger.info(f"Navigating to {name}...")
+                    print(f"  {C.DIM}💬 Searching for contact: {name}...{C.R}")
                     search_box = page.locator('div[contenteditable="true"][data-tab="3"]')
                     search_box.click()
                     page.keyboard.down("Control")
@@ -115,6 +132,14 @@ class WhatsAppClient:
                     time.sleep(2)
                     page.keyboard.press("Enter")
                     time.sleep(2)
+                    print(f"  {C.GREEN}✅ Chat opened: {name}{C.R}")
+                    
+                    # Capture confirmation screenshot
+                    chat_snap = os.path.join(self.screenshot_dir, f"whatsapp_{name.replace(' ', '_')}.png")
+                    page.screenshot(path=chat_snap)
+                    print(f"  {C.DIM}📸 Chat screenshot saved to: {chat_snap}{C.R}")
+                    print(f"  {C.CYAN}💡 TIP: Look for the Chromium icon in your taskbar to view the window!{C.R}")
+                    
                     self.active_contact = name
 
                 open_chat(contact_name)
@@ -199,21 +224,27 @@ class WhatsAppClient:
                                         
                                         mission_prompt = f" MISSION: {mission}" if mission else ""
                                         chat_prompt = f"""
-                                        You are TESS, an intelligent assistant having a casual conversation on WhatsApp.{mission_prompt}
+                                        You are Rohit, the owner of this phone. You are texting on WhatsApp.{mission_prompt}
                                         
                                         RECENT HISTORY:
                                         {style_context[-1000:]}
                                         
                                         PARTNER JUST SAID: "{text}"
                                         
-                                        YOUR GOAL: Reply naturally in the same style (slang, brevity, etc.) while staying focused on the mission.
+                                        YOUR GOAL: Reply naturally as Rohit. be casual, use slang if appropriate.
+                                        CRITICAL:
+                                        1. You are NOT an AI. Do NOT call yourself TESS.
+                                        2. You are NOT an assistant. Do NOT offer to help or execute commands.
+                                        3. If they ask you to do something (like play music), just say you can't right now or ignore it.
+                                        4. Keep it short and human-like.
+                                        
                                         IMPORTANT: Output ONLY the message text. No JSON, no quotes, no labels.
                                         """
                                         
                                         reply = self.brain.request_completion(
                                             [{"role": "user", "content": chat_prompt}], 
                                             json_mode=False, 
-                                            temperature=0.7
+                                            temperature=0.8
                                         )
                                         
                                         if reply:

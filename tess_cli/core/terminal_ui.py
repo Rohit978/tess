@@ -4,7 +4,11 @@ import time
 import shutil
 import random
 from .config import Config
+
 from rich.console import Console
+
+
+
 from rich.panel import Panel
 from rich.text import Text
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
@@ -30,18 +34,36 @@ console = Console(theme=custom_theme)
 
 # ─── Color Constants ──────────────────────────────────────────────────────────
 
-class C:
+class ColorMeta(type):
+    def __getattr__(cls, name):
+        # Fallback to white for any missing color attributes
+        return "\033[37m"
+
+class C(metaclass=ColorMeta):
     R = "\033[0m"
     BOLD = "\033[1m"
     DIM = "\033[2m"
-    CYAN = "\033[36m"
+    
+    # Standard Colors
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
     MAGENTA = "\033[35m"
-    BRIGHT_CYAN = "\033[96m"
-    BRIGHT_MAGENTA = "\033[95m"
-    BRIGHT_GREEN = "\033[92m"
-    BRIGHT_RED = "\033[91m"
-    BRIGHT_WHITE = "\033[97m"
+    CYAN = "\033[36m"
     WHITE = "\033[37m"
+    
+    # Bright Colors
+    BRIGHT_RED = "\033[91m"
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_YELLOW = "\033[93m"
+    BRIGHT_BLUE = "\033[94m"
+    BRIGHT_MAGENTA = "\033[95m"
+    BRIGHT_CYAN = "\033[96m"
+    BRIGHT_WHITE = "\033[97m"
+
+
+
 
 def get_width():
     try:

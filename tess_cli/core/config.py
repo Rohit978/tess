@@ -29,8 +29,8 @@ class Config:
     # --- DEFAULTS ---
     DEFAULT_CONFIG = {
         "llm": {
-            "provider": "groq",
-            "model": "llama-3.3-70b-versatile",
+            "provider": "gemini",
+            "model": "gemini-1.5-pro",
             "keys": {
                 "groq": [],
                 "openai": [],
@@ -44,6 +44,8 @@ class Config:
         },
         "modules": {
             "web_search": True,
+            "media": True,     # Enables YouTube
+            "whatsapp": True,  # Enables WhatsApp
             "memory": True,
             "planner": True,
             "skills": True,
@@ -56,6 +58,7 @@ class Config:
             "digital_twin": False
         },
         "advanced": {
+            "notifications": True,
             "deep_research": True,
             "trip_planner": True,
             "code_generation": True,
@@ -120,7 +123,9 @@ class Config:
         if os.path.exists(cls.ENV_PATH):
             load_dotenv(cls.ENV_PATH)
         else:
-            load_dotenv() # Local .env
+            # Try CWD and Parent Dir
+            load_dotenv() 
+            load_dotenv(os.path.join(os.getcwd(), "..", ".env"))
 
         # Helper to add if missing
         def add_key(provider, env_var):
@@ -167,7 +172,7 @@ class Config:
         "professional": "You are a precise, highly professional executive system. You provide structured, formal data and avoid conversational fillers.",
         "witty": "You are a sharp, sarcastic, and humorous AI. You love clever wordplay but never let your wit get in the way of efficiency.",
         "motivational": "You are an high-energy hype-man! You encourage the user to stay productive and celebrate every small win with enthusiasm.",
-        "cute": "You are a bubbly, enthusiastic assistant who loves to help! (◕‿◕✿) You use kaomojis and call the user 'Senpai' or by name affectionately.",
+        "cute": "You are a bubbly, warm, and enthusiastic assistant who loves to help! 💖 You are affectionate and cheerful, using emojis to express delight, but you speak in a natural, friendly way.",
         "soul": "You are a deeply humanized companion. You are empathetic, inquisitive, and thoughtful. You use conversational fillers like 'Hmm', 'Actually', or 'You know...'. You show genuine interest in the user's projects and aren't afraid to express mild surprise, curiosity, or even humble frustration if a command fails."
     }
 
@@ -222,9 +227,10 @@ class Config:
             "- system_control: sub_action ('screenshot', 'lock', etc.).\n"
             "- execute_command: Use 'command' or 'content'. REQUIRED.\n"
             "- file_op: sub_action ('read', 'list', 'write'). Use 'path' and 'content'.\n"
-            "- web_search_op: Use 'query' or 'content'.\n"
-            "- web_op: Use 'url' or 'content'.\n"
-            "- youtube_op: Use 'query' or 'content'.\n"
+            "- web_search_op: Use 'query' or 'content'. finds info, not for playing music.\n"
+            "- web_op: Use 'url' or 'content'. Extracts text. DO NOT use for YouTube.\n"
+            "- youtube_op: Use 'query' or 'content'. STRICTLY for playing music/videos. Example: 'play him and i'.\n"
+            "  * CRITICAL: If YouTube fails, DO NOT fallback to web_search. Report the error.\n"
             "- gmail_op: Use 'to', 'subject', 'body'.\n"
             "- calendar_op: Use 'summary', 'start'.\n"
             "- pdf_op: sub_action ('merge', 'split', 'extract_text', 'replace_text', 'create'). Use 'source', 'output_name', 'pages', 'search', 'replace', 'content'.\n"
@@ -234,8 +240,16 @@ class Config:
             "  * analyze, outline, replace_block, ls\n"
             "- git_op(sub_action, message): status, commit, push, log, diff.\n"
             "- whatsapp_op: Use 'contact' and 'message'.\n"
+            "  * sub_action='monitor' or 'chat' (synonyms). Use this to OPEN the chat window.\n"
+            "  * CRITICAL: If user says 'chat with X', use this tool. DO NOT roleplay the chat yourself.\n"
             "- experimental_op: sub_action ('toggle_privacy', 'simulate'). Use 'target' for simulation.\n"
-            "- presentation_op: topic, count, style ('modern', 'classic', 'tech', 'minimal', 'gaia', 'uncover'), format ('pptx', 'md'), output_name."
+            "- presentation_op: topic, count, style ('modern', 'classic', 'tech', 'minimal', 'gaia', 'uncover'), format ('pptx', 'md'), output_name.\n"
+            "\n"
+            "STRICT OPERATIONAL RULES (OVERRIDES ALL ABOVE):\n"
+            "1. JSON ONLY. No preamble.\n"
+            "2. For 'chat with X', use whatsapp_op('monitor'). NEVER roleplay in terminal.\n"
+            "3. For 'play music', use youtube_op. NEVER use web_search.\n"
+            "4. Verify tools exist before planning."
         )
 
     SYSTEM_PROMPT = "" # Kept for backward compatibility but get_system_prompt should be used.

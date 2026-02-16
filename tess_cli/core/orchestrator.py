@@ -179,15 +179,31 @@ def process_action(action_data: dict, components: dict, brain):
                  result = f"Page Content: {res}"
 
     # 7. MEDIA (YouTube)
+    # 7. MEDIA (YouTube)
     elif action == "youtube_op":
-        if not components.get('youtube_client'): result = out("YouTube module is disabled.")
+        client = components.get('youtube_client')
+        if not client: 
+            print(f"  {C.RED}❌ YouTube component missing.{C.R}")
+            result = out("YouTube module is disabled.")
         else:
-            sub = action_data.get("sub_action")
-            if sub == "play":
-                out(f"🎵 Playing: {action_data.get('query')}")
-                res = components['youtube_client'].play_video(action_data.get("query"))
-                result = f"YT Play: {res}"
-            else: result = "Unknown YT op"
+            query = action_data.get("query") or action_data.get("content")
+            sub = action_data.get("sub_action", "play") # Default to play
+            
+            print(f"  {C.DIM}🎵 YouTube Op: {sub} -> {query}{C.R}")
+            
+            if sub == "play" or not sub:
+                if query:
+                    try:
+                        res = client.play_video(query)
+                        result = f"YT Play: {res}"
+                    except Exception as e:
+                        print(f"  {C.RED}🔥 YouTube Error: {e}{C.R}")
+                        result = f"Error: {e}"
+                else:
+                    result = "Error: No query provided."
+            else: 
+                # Handle control actions if implemented, or just error
+                result = f"Unknown YT sub_action: {sub}"
 
     # 8. WHATSAPP
     elif action == "whatsapp_op":
@@ -200,10 +216,11 @@ def process_action(action_data: dict, components: dict, brain):
                     action_data.get("message")
                 )
                 result = out(res)
-            elif sub == "monitor":
-                out(f"💬 Monitoring {action_data.get('contact')}...")
-                components['whatsapp'].monitor_chat(action_data.get("contact"))
-                result = f"Monitoring chat: {action_data.get('contact')}"
+            elif sub == "monitor" or sub == "chat":
+                contact = action_data.get("contact")
+                print(f"  {C.DIM}💬 Monitoring {contact}...{C.R}")
+                components['whatsapp'].monitor_chat(contact)
+                result = f"Monitoring chat: {contact}"
 
     # 9. KNOWLEDGE BASE
     elif action == "knowledge_op":

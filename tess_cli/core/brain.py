@@ -86,7 +86,7 @@ class Brain:
         If history is too long, distill it into key facts and progress
         to prevent 'forgetting'.
         """
-        if len(self.history) < 20:
+        if len(self.history) < 100:
              return
 
         logger.info("🧠 History too long. Distilling context...")
@@ -258,11 +258,12 @@ class Brain:
                  elif self.provider == "deepseek":
                      self.provider = "gemini"
                      self.model = "gemini-2.0-flash"
-                 elif self.provider == "gemini":
+                 if self.provider == "gemini":
                       # Last resort or cycle?
                       # For now, let it retry or fail if max reached.
                       pass
                  
+                 time.sleep(10) # Heavy Backoff for Gemini Free Tier (15 RPM)
                  return self._execute_llm_request(retry_count + 1)
 
             # Handle 401 (Auth) OR 404 (Model Not Found)
@@ -293,10 +294,10 @@ class Brain:
                         self.provider = "deepseek"
                         self.model = "deepseek-coder"
                     elif self.provider == "deepseek":
-                        logger.warning("DeepSeek consistently failing. Failing over to Gemini.")
                         self.provider = "gemini"
                         self.model = "gemini-2.0-flash"
             
+            time.sleep(2) # Backoff before retry
             return self._execute_llm_request(retry_count + 1)
 
 

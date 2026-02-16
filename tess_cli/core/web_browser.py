@@ -106,10 +106,14 @@ class WebBrowser:
         Much faster and more reliable than headless browsing.
         """
         try:
-            from duckduckgo_search import DDGS
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=RuntimeWarning)
+                from ddgs import DDGS
             
             results = []
             with DDGS() as ddgs:
+
                 # Use the new .text method (which is now a standard method, not a generator in newer versions)
                 response = ddgs.text(query, max_results=5)
                 
