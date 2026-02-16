@@ -3,6 +3,7 @@ from typing import Optional, Literal, Union
 
 # Base Action
 class BaseAction(BaseModel):
+    thought: Optional[str] = Field(None, description="The AI's reasoning process")
     reason: Optional[str] = Field(None, description="Explanation of why this action triggers")
     is_dangerous: bool = Field(False, description="Flag for dangerous operations")
 
