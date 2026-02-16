@@ -240,10 +240,26 @@ def process_action(action_data: dict, components: dict, brain):
             extras = {
                 "pages": action_data.get("pages"),
                 "search": action_data.get("search"),
-                "replace": action_data.get("replace")
+                "replace": action_data.get("replace"),
+                "content": action_data.get("content")
             }
             
             res = pdf.run(sub, source, out_name, extras)
+            result = out(res)
+
+    # 12. PRESENTATION OPERATIONS
+    elif action == "presentation_op":
+        pres = components.get('presentation_skill')
+        if not pres: result = out("Presentation Skill is disabled.")
+        else:
+            topic = action_data.get("topic")
+            count = action_data.get("count", 5)
+            style = action_data.get("style", "modern")
+            fmt = action_data.get("format", "pptx")
+            out_name = action_data.get("output_name")
+            
+            out(f"🎨 Designing Presentation: {topic} (Style: {style}, Format: {fmt})")
+            res = pres.run("create", topic, count, style, fmt, out_name)
             result = out(res)
 
     # 11. GOOGLE (Gmail/Cal)

@@ -110,22 +110,34 @@ class WebBrowser:
             
             results = []
             with DDGS() as ddgs:
-                # Get up to 5 results
-                ddg_gen = ddgs.text(query, max_results=5)
-                for r in ddg_gen:
+                # Use the new .text method (which is now a standard method, not a generator in newer versions)
+                response = ddgs.text(query, max_results=5)
+                
+                for r in response:
                     title = r.get('title', 'No Title')
                     link = r.get('href', 'N/A')
                     snippet = r.get('body', '')
                     results.append(f"🔹 **{title}**\n{snippet}\n[Link]({link})")
             
-            if not results:
-                return "No results found."
-                
-            return "\n\n".join(results)
-                
         except Exception as e:
-            logger.error(f"Search Error: {e}")
-            return f"Search failed: {e}. Ensure 'duckduckgo-search' is installed."
+            logger.warning(f"DuckDuckGo API failed: {e}. Falling back to Browser Search...")
+            results = []
+        
+        # 🛡️ FALLBACK: Use Playwright to scrape a search engine
+        if not results:
+            try:
+                logger.info(f"🌐 Falling back to Playwright search for: {query}")
+                search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
+                scrape_res = self.scrape_page(search_url)
+                if scrape_res and "Error" not in scrape_res:
+                    return f"Search Results (via Browser Fallback):\n\n{scrape_res[:1500]}..."
+                else:
+                    return "Search failed both via API and Browser Fallback."
+            except Exception as fe:
+                logger.error(f"Search Fallback Error: {fe}")
+                return f"Search failed: {e}"
+
+        return "\n\n".join(results)
 
     async def search_async(self, query):
         """

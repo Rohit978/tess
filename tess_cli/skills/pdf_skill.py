@@ -13,8 +13,8 @@ class PDFSkill:
     - Extracting text from a PDF
     - Replacing text (experimental)
     """
-    def __init__(self):
-        pass
+    def __init__(self, brain=None):
+        self.brain = brain
 
     def run(self, action_type, source, output_name=None, extras=None):
         """
@@ -29,6 +29,8 @@ class PDFSkill:
                 return self.extract_text(source)
             elif action_type == "replace_text":
                 return self.replace_text(source, extras.get("search"), extras.get("replace"), output_name)
+            elif action_type == "create":
+                return self.create_pdf(extras.get("content", ""), output_name)
             else:
                 return f"Unknown PDF operation: {action_type}"
         except Exception as e:
@@ -147,3 +149,32 @@ class PDFSkill:
         doc.save(output_path)
         doc.close()
         return f"Successfully replaced '{search_text}' with '{replace_text}' in {count} locations. Saved to: {output_path}"
+
+    def create_pdf(self, content, output_name):
+        """Creates a new PDF from text content."""
+        if not content:
+            return "Error: No content provided for PDF creation."
+
+        if not output_name:
+            output_name = "generated_document.pdf"
+
+        if not output_name.lower().endswith(".pdf"):
+            output_name += ".pdf"
+
+        output_path = os.path.join(os.getcwd(), output_name)
+
+        try:
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            # FPDF2 supports 'helvetica' by default (Arial is an alias)
+            pdf.set_font("helvetica", size=12)
+            
+            # Multi-cell handles automatic line breaks
+            pdf.multi_cell(0, 10, txt=content.encode('latin-1', 'replace').decode('latin-1'))
+            
+            pdf.output(output_path)
+            return f"Successfully created PDF: {output_path}"
+        except Exception as e:
+            logger.error(f"Failed to create PDF: {e}")
+            return f"Error creating PDF: {e}"
