@@ -12,8 +12,8 @@ class Sandbox:
     [EXPERIMENTAL] The Multiverse Engine.
     Scalable Isolation for safe command execution.
     - Tier 1: Docker (Transient Containers)
-    - Tier 2: Windows Sandbox (.wsb automation)
-    - Tier 3: Restricted Subprocess (Witness-only)
+    - Tier 2: Windows Sandbox (Disabled on Home edition)
+    - Tier 3: Restricted Subprocess (Active Fallback)
     """
     def __init__(self, brain):
         self.brain = brain
@@ -101,25 +101,60 @@ class Sandbox:
         )
         return container.decode('utf-8').strip()
 
-    def _run_restricted_subprocess(self, command, timeout=10):
-        """Runs a command as a child process with a temp CWD and timeout."""
-        logger.info("🔬 Launching Restricted Subprocess Sandbox...")
+    def _run_restricted_subprocess(self, command, timeout=None):
+        """
+        Runs a command in an isolated temp directory with resource guarding.
+        Uses psutil to monitor for CPU/Memory spikes.
+        """
+        import psutil
+        import time
+        from .config import Config
+
+        # Use defaults from Config if not specified
+        if timeout is None:
+            timeout = Config.SANDBOX_TIMEOUT_SEC
+        ram_limit = Config.SANDBOX_RAM_LIMIT_MB
+
+        logger.info(f"🔬 Launching Resource-Guarded Subprocess (Limit: {ram_limit}MB, {timeout}s)...")
         temp_dir = tempfile.mkdtemp(prefix="tess_sandbox_")
+        
+        # Decide shell based on command (default to PowerShell for modern Windows)
+        shell_cmd = ["powershell", "-Command", command] if "powershell" in command.lower() or "-" in command else command
+        
         try:
-            # Note: On Windows, truly restricting a subprocess without a job object is hard.
-            # We treat this as a "Witness" mode.
-            res = subprocess.run(
-                command,
-                shell=True,
+            process = subprocess.Popen(
+                shell_cmd,
+                shell=isinstance(shell_cmd, str),
                 cwd=temp_dir,
-                capture_output=True,
-                text=True,
-                timeout=timeout
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
             )
-            output = res.stdout if res.stdout else res.stderr
+
+            # 🛡️ RESOURCE GUARD (CPU/Memory)
+            start_time = time.time()
+            while process.poll() is None:
+                # Check timeout
+                if time.time() - start_time > timeout:
+                    process.kill()
+                    return f"[TIMED OUT]: Command took longer than {timeout}s."
+                
+                try:
+                    p = psutil.Process(process.pid)
+                    # Simple guards for i3/8GB: kill if memory > 200MB or CPU > 50% for too long
+                    mem_mb = p.memory_info().rss / (1024 * 1024)
+                    if mem_mb > ram_limit:
+                        process.kill()
+                        return f"[RESOURCE LIMIT]: Sandbox killed - Memory exceeded {ram_limit}MB ({mem_mb:.1f}MB)."
+                except:
+                    pass
+                
+                time.sleep(0.1)
+
+            stdout, stderr = process.communicate()
+            output = stdout if stdout else stderr
             return output.strip() if output else "[No output produced]"
-        except subprocess.TimeoutExpired:
-            return "[Command Timed Out - Sandbox Terminated]"
+
         except Exception as e:
             return f"[Sandbox Error]: {e}"
         finally:

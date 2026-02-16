@@ -148,6 +148,11 @@ class Config:
                 cls._data["integrations"]["telegram"]["token"] = token
                 cls._data["integrations"]["telegram"]["user_id"] = os.getenv("TELEGRAM_ALLOWED_USER_ID", "")
 
+        # Sandbox settings from environment variables
+        # These are not part of _data, but direct class attributes for simplicity
+        cls.SANDBOX_RAM_LIMIT_MB = int(os.getenv("SANDBOX_RAM_LIMIT_MB", "200"))
+        cls.SANDBOX_TIMEOUT_SEC = int(os.getenv("SANDBOX_TIMEOUT_SEC", "15"))
+
     @classmethod
     def save(cls):
         """Saves current config to JSON."""
