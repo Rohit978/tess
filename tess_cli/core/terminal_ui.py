@@ -3,6 +3,7 @@ import sys
 import time
 import shutil
 import random
+from .config import Config
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -146,6 +147,13 @@ def get_prompt():
 
 def print_thinking(msg="Thinking..."):
     global _thinking_spinner
+    
+    # 🛡️ SAFETY CHECK: Only proceed if msg is "Thinking..." in minimal mode
+    if Config.get_ui_mode() == "minimal" and msg != "Thinking...":
+        return
+        
+    clear_thinking() # Ensure any previous spinner is cleanly stopped
+    
     _thinking_spinner = Progress(
         SpinnerColumn("aesthetic", style="bright_magenta"),
         TextColumn("[italic magenta]{task.description}"),
@@ -182,6 +190,8 @@ def print_tess_message(msg):
     console.print(panel)
 
 def print_tess_action(msg):
+    if Config.get_ui_mode() == "minimal":
+        return
     console.print(f"  [bold yellow]⚡ ACTION:[/bold yellow] [dim]{msg}[/dim]")
 
 def print_error(msg):

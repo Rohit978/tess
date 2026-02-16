@@ -165,6 +165,16 @@ class SysAdminAction(BaseAction):
     action: Literal["sysadmin_op"]
     sub_action: Literal["wifi_on", "wifi_off", "bluetooth_on", "bluetooth_off", "battery_status", "system_info", "mute_mic", "unmute_mic"]
 
+# 25. PDF Operations
+class PDFOpAction(BaseAction):
+    action: Literal["pdf_op"]
+    sub_action: Literal["merge", "split", "extract_text", "replace_text"]
+    source: Union[str, list[str]]
+    output_name: Optional[str] = None
+    pages: Optional[str] = None
+    search: Optional[str] = None
+    replace: Optional[str] = None
+
 # Union Type for easy validation
 TessAction = Union[
     LaunchAppAction,
@@ -189,9 +199,9 @@ TessAction = Union[
     TeachSkillAction,
     RunSkillAction,
     TripPlannerAction,
-    ResearchAction,
     TripPlannerAction,
     ResearchAction,
     ConverterAction,
-    SysAdminAction
+    SysAdminAction,
+    PDFOpAction
 ]

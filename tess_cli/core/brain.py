@@ -105,7 +105,7 @@ class Brain:
         if distilled:
             # 2. Update Memory with the distillation
             if self.memory:
-                self.memory.add_thought(f"Distilled Context: {distilled}")
+                self.memory.store_memory(f"Distilled Context: {distilled}")
             
             # 3. Trim History: Keep system prompt, distilled fact, and last 4 exchanges
             distilled_msg = {"role": "system", "content": f"[DISTILLED CONTEXT FROM PREVIOUS CHATS]\n{distilled}"}

@@ -21,6 +21,8 @@ pyautogui>=0.9.54
 clipboard>=0.0.4
 psutil>=5.9.0
 screen-brightness-control>=0.8.0
+pymupdf>=1.23.0
+docker>=7.0.0
 
 # Integrations
 python-telegram-bot>=20.0

@@ -56,6 +56,10 @@ class MemoryEngine:
         logger.info(f"Memory stored: {text[:50]}...")
         return entry["id"]
 
+    def add_thought(self, text):
+        """Robustness alias for context distillation."""
+        return self.store_memory(text)
+
     def retrieve_context(self, query, limit=3):
         """
         Retrieves relevant memories based on keyword overlap (TF-IDF style simplified).

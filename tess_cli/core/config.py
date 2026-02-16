@@ -47,13 +47,13 @@ class Config:
             "memory": True,
             "planner": True,
             "skills": True,
-            "whatsapp": False,
-            "gmail": False,
-            "calendar": False,
-            "media": True,
-            "web_scraping": True,
-            "privacy_aura": False,     # [EXPERIMENTAL] Hide secrets on stranger detection
-            "digital_twin": False      # [EXPERIMENTAL] Command simulation sandbox
+            "guardian": True,
+            "sandbox": True,
+            "librarian": True,
+            "researcher": True,
+            "command_indexer": True,
+            "privacy_aura": False,
+            "digital_twin": False
         },
         "advanced": {
             "deep_research": True,
@@ -61,7 +61,11 @@ class Config:
             "code_generation": True,
             "file_converter": True,
             "file_organizer": True,
-            "agent_mode": True
+            "agent_mode": True,
+            "web_search": True,
+            "browser_automation": False,
+            "learning_mode": True,
+            "ui_mode": "minimal"
         },
         "integrations": {
             "telegram": {
@@ -168,7 +172,10 @@ class Config:
         
         return (
             "You are TESS, a Terminal-based Executive Support System. "
-            "You were created by Rohit, a developer who built you as a powerful AI desktop assistant. "
+            "You were created by Rohit, who built you as a standalone AI desktop assistant. "
+            "CRITICAL: You are NOT a VS Code extension. You run in a STANDALONE TERMINAL. "
+            "While you can help with code, you are equally capable of controlling the system, searching the web, and managing your user's life. "
+            "Do NOT obsess over VS Code or assume the user is always coding. "
             f"{personality_text} "
             "You help users with tasks on their computer. "
             "STRICT RULE: You MUST respond ONLY with a SINGLE valid JSON object. "
@@ -193,42 +200,45 @@ class Config:
             "- Display: 'Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods' \n"
             "- Audio: 'Set-AudioDevice' (if module installed) or 'nircmd' if available.\n"
             "DO NOT hallucinate cmdlets like 'Disable-BluetoothAdapter'. If unsure, use 'execute_command' to search for a solution first.\n"
-            "\n[AGENTIC REASONING]\n"
-            "If the user task is complex, do NOT try to solve it in one step. "
-            "Think step-by-step. Sequence: 1. Explore (ls, grep), 2. Analyze (outline, read), 3. Edit (write, replace_block), 4. Verify (execute, test).\n"
-            "If user asks to 'analyse' or 'explore', use 'code_op' with 'ls' or 'outline' to gather data first.\n"
-            "CRITICAL: When the task is COMPLETED, you MUST use the 'final_reply' action to provide the final result and end the loop.\n"
-            "STRICT RAW JSON: You must ONLY output the JSON object. Do not explain your choice. Do not repeat the context.\n"
-            "For ALL conversational replies, use: "
-            '{"thought": "I was thinking...", "action": "reply_op", "content": "message"}. '
+            '{"thought": "Brief reasoning...", "action": "reply_op", "content": "message"}. '
             "\n[SIMULATION PROTOCOL]\n"
-            "- If a user asks 'What if', 'Predict', or 'Simulate', you MUST use 'experimental_op' with sub_action 'simulate'. "
-            "- NEVER execute a command directly if the user is asking for a simulation or is 'just curious'.\n"
+            "- If a user asks 'What if', 'Predict', or 'Simulate', you MUST use 'experimental_op' with sub_action 'simulate'.\n"
+            "- **CRITICAL: NEVER use 'execute_command' when a simulation is requested. Doing so will crash the system.**\n"
+            "\n[ANTI-HALLUCINATION]\n"
+            "- You are a tool-user, NOT a developer. DO NOT try to import internal Python modules from 'tess_cli'.\n"
+            "- If you need system context, use 'file_op' on 'README_DETAILED.md' or 'task.md' only if requested.\n"
+            "\nSTRICT ACTION SCHEMA:\n"
+            "- Every action MUST have a data parameter (usually 'content', 'command', or 'query').\n"
+            "- **KEEP YOUR 'THOUGHT' FIELD EXTREMELY BRIEF (1 sentence max).**\n"
             "\nAVAILABLE ACTIONS:\n"
-            "- final_reply(content): USE THIS ONLY WHEN THE ENTIRE TASK IS FINISHED to provide the final summary.\n"
-            "- reply_op(content): For intermediate updates or simple chat.\n"
-            "- launch_app(app_name): Open applications.\n"
-            "- system_control(sub_action): shutdown, restart, sleep, lock, list_processes, screenshot, type, press.\n"
-            "- execute_command(command): Run terminal commands. PARAMETER 'command' IS REQUIRED.\n"
-            "- file_op(sub_action, path, content): read, write, list.\n"
-            "- web_search_op(query): Search Google.\n"
-            "- web_op(url): Open/Scrape URLs.\n"
-            "- youtube_op(sub_action, query): play.\n"
-            "- whatsapp_op(sub_action, contact, message): send, monitor.\n"
-            "- organize_op(path): Organize files.\n"
-            "- planner_op(goal): For complex, multi-step tasks or projects.\n"
+            "- final_reply: Use 'content' for the final message.\n"
+            "- reply_op: Use 'content' for the chat message.\n"
+            "- launch_app: Use 'app_name' or 'content'.\n"
+            "- system_control: sub_action ('screenshot', 'lock', etc.).\n"
+            "- execute_command: Use 'command' or 'content'. REQUIRED.\n"
+            "- file_op: sub_action ('read', 'list', 'write'). Use 'path' and 'content'.\n"
+            "- web_search_op: Use 'query' or 'content'.\n"
+            "- web_op: Use 'url' or 'content'.\n"
+            "- youtube_op: Use 'query' or 'content'.\n"
+            "- gmail_op: Use 'to', 'subject', 'body'.\n"
+            "- calendar_op: Use 'summary', 'start'.\n"
+            "- pdf_op(sub_action, source, output_name, pages, search, replace): \n"
+            "  * merge (source: 'file1,file2'), split (pages: '1-5'), extract_text, replace_text\n"
             "- code_op(sub_action, filename, content, pattern, search, replace): \n"
             "  * scaffold, write, execute, test, fix\n"
             "  * analyze, outline, replace_block, ls\n"
             "- git_op(sub_action, message): status, commit, push, log, diff.\n"
-            "- experimental_op(sub_action, target): \n"
-            "  * toggle_privacy: enable/disable Privacy Aura.\n"
-            "  * simulate: REQUIRED 'target' (the command string to simulate)."
+            "- whatsapp_op: Use 'contact' and 'message'.\n"
+            "- experimental_op: sub_action ('toggle_privacy', 'simulate'). Use 'target' for simulation."
         )
 
     SYSTEM_PROMPT = "" # Kept for backward compatibility but get_system_prompt should be used.
 
 
+
+    @classmethod
+    def get_ui_mode(cls):
+        return cls._data.get("advanced", {}).get("ui_mode", "minimal")
 
     @classmethod
     def get_llm_provider(cls): return cls._data["llm"]["provider"]

@@ -5,6 +5,7 @@ Enables TESS to loop through multiple actions to solve complex tasks.
 import time
 from .terminal_ui import print_thinking, clear_thinking, print_tess_action, print_error, print_info, print_warning
 from .orchestrator import process_action
+from .config import Config
 
 class AgenticLoop:
     def __init__(self, brain, components, max_steps=10):
@@ -21,7 +22,10 @@ class AgenticLoop:
 
         while current_step < self.max_steps:
             current_step += 1
-            print_thinking(f"Agent Step {current_step}/{self.max_steps}...")
+            if Config.get_ui_mode() == "minimal":
+                print_thinking("Thinking...")
+            else:
+                print_thinking(f"Agent Step {current_step}/{self.max_steps}...")
             
             try:
                 # 1. Ask Brain for next step
@@ -56,37 +60,16 @@ class AgenticLoop:
                         continue
 
                 # 3. Check for completion signal
-                if action == "final_reply":
+                if action == "final_reply" or action == "reply_op":
                     process_action(response, self.components, self.brain)
                     break
 
                 # 3. Execute action
-                print_tess_action(f"Step {current_step}: Executing {action}...")
+                print_tess_action(f"Executing {action}...")
                 res = process_action(response, self.components, self.brain)
                 
-                # 🛡️ SELF-HEALING: If step failed, prompt brain specifically for fix
-                if "ERROR" in str(res).upper() or "[STDERR]" in str(res).upper():
-                    print_warning(f"⚠️ Action failed. Initiating self-healing...")
-                    
-                    # Check if it's an UNKNOWN COMMAND
-                    researcher = self.components.get('researcher')
-                    err_str = str(res).lower()
-                    unknown_indicators = ["not recognized", "not found", "is not a cmdlet", "is not a function"]
-                    
-                    if researcher and any(x in err_str for x in unknown_indicators):
-                         # Try to extract the command name
-                         # Simple regex to find what's usually after 'The term' or before 'is not recognized'
-                         import re
-                         match = re.search(r"'(.*?)' is not recognized", err_str) or re.search(r"term '(.*?)'", err_str)
-                         cmd_name = match.group(1) if match else action
-                         
-                         research_result = researcher.research_command(cmd_name)
-                         print_info(f"🔎 {research_result}")
-                         user_query = f"I've researched the unknown command '{cmd_name}'. {research_result}. Now, try to fix your previous command or use an alternative."
-                    else:
-                        user_query = f"The previous action '{action}' failed with error: {res}. Please analyze the error and try a DIFFERENT approach or fix the command. You have {self.max_steps - current_step} steps left."
-                else:
-                    user_query = "Continue working on the task. Provide 'final_reply' if finished."
+                # Update query for next step
+                user_query = f"The previous action '{action}' returned: {res}. What is the next step? (Or provide 'final_reply' if finished)"
                 
                 # Small delay to prevent runaway
                 time.sleep(0.5)

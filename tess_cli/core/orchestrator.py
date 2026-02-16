@@ -76,7 +76,8 @@ def process_action(action_data: dict, components: dict, brain):
     # ─── EXPERIMENTAL (Privacy Aura / Digital Twin) ───
     elif action == "experimental_op":
         sub = action_data.get("sub_action")
-        target = action_data.get("target")
+        # 🛡️ FUZZY PARAMS
+        target = action_data.get("target") or action_data.get("content") or action_data.get("command")
 
         if sub == "toggle_privacy":
             g = components.get('guardian')
@@ -89,12 +90,28 @@ def process_action(action_data: dict, components: dict, brain):
         elif sub == "simulate":
             s = components.get('sandbox')
             if not s: result = out("Digital Twin sandbox is disabled.")
+            elif not target:
+                result = out("ERROR: Missing 'target' command for simulation.")
             else:
                 sim_res = s.simulate_command(target)
-                result = f"🔮 [DIGITAL TWIN PREDICTION]\nCommand: {sim_res['command']}\nSafety: {sim_res['safety_rating']}\n\nOutcome: {sim_res['prediction']}"
+                engine = sim_res.get('engine', 'Unknown Engine')
+                safety = sim_res.get('safety_rating', 'UNKNOWN')
+                reason = sim_res.get('safety_reason', '')
+                raw_out = sim_res.get('output', '')
+                explanation = sim_res.get('prediction', '')
+                
+                display_text = (
+                    f"[bold yellow]Command:[/] {target}\n"
+                    f"[bold cyan]Engine:[/] {engine}\n"
+                    f"[bold {'red' if safety == 'DANGEROUS' else 'green'}]Safety:[/] {safety} ({reason})\n"
+                    f"\n[bold magenta]Real Sandbox Output:[/]\n{raw_out}\n\n"
+                    f"[bold blue]TESS Interpretation:[/]\n{explanation}"
+                )
+                
                 from rich.panel import Panel
                 from .terminal_ui import console
-                console.print(Panel(result, title="SIMULATION RESULTS", border_style="cyan"))
+                console.print(Panel(display_text, title="✨ MULTIVERSE SIMULATION ✨", border_style="cyan"))
+                result = f"Simulated '{target}' using {engine}. Result: {explanation}"
         else:
             result = out(f"Unknown experimental sub-action: {sub}")
 
@@ -103,11 +120,18 @@ def process_action(action_data: dict, components: dict, brain):
         exe = components.get('executor')
         if not exe: result = out("Executor is disabled.")
         else:
-            cmd = action_data.get("command")
-            res = exe.execute_command(cmd)
-            out(f"Executed: {cmd}")
-            print(f"  {C.DIM}{res}{C.R}")
-            result = f"Command Output: {res}"
+            # 🛡️ FUZZY PARAMS: Fallback to common keys if 'command' is missing
+            cmd = action_data.get("command") or action_data.get("content") or action_data.get("target")
+            
+            if not cmd:
+                # Last resort: If the AI spoke its mind in the 'thought' but forgot the command, 
+                # we might be able to infer it, but for now, we just report the failure.
+                result = out("ERROR: Missing 'command' parameter in JSON.")
+            else:
+                res = exe.execute_command(cmd)
+                out(f"Executed: {cmd}")
+                print(f"  {C.DIM}{res}{C.R}")
+                result = f"Command Output: {res}"
 
     # 5. FILE OPERATIONS
     elif action == "file_op":
@@ -125,7 +149,9 @@ def process_action(action_data: dict, components: dict, brain):
                 print(f"  {C.BRIGHT_CYAN}{'━' * 40}{C.R}")
                 result = f"File Content ({path}): {res}"
             elif sub == "write":
-                res = fm.write_file(path, content)
+                # Fallback for content
+                actual_content = content or action_data.get("text") or action_data.get("command")
+                res = fm.write_file(path, actual_content)
                 result = out(res)
             elif sub == "list":
                 res = fm.list_dir(path)
@@ -139,13 +165,14 @@ def process_action(action_data: dict, components: dict, brain):
         if not wb: result = out("Web Search is disabled.")
         else:
             if action == "web_search_op":
-                query = action_data.get("query")
+                # 🛡️ FUZZY PARAMS
+                query = action_data.get("query") or action_data.get("content") or action_data.get("command")
                 res = wb.search_google(query)
                 print(f"\n  {C.BRIGHT_GREEN}🔎 Search Results for '{query}':{C.R}")
                 print(f"  {C.DIM}{res}{C.R}\n")
                 result = f"Search Results: {res}"
             else:
-                 url = action_data.get("url")
+                 url = action_data.get("url") or action_data.get("content") # Model often puts URL in content
                  res = wb.scrape_page(url)
                  print(f"\n  {C.BRIGHT_BLUE}📄 Page Content ({url}):{C.R}")
                  print(f"  {C.DIM}{res[:500]}...{C.R}\n")
@@ -199,6 +226,24 @@ def process_action(action_data: dict, components: dict, brain):
         else:
             path = action_data.get("path")
             res = components['organizer'].organize_directory(path)
+            result = out(res)
+
+    # 11. PDF OPERATIONS
+    elif action == "pdf_op":
+        pdf = components.get('pdf_skill')
+        if not pdf: result = out("PDF Skill is disabled.")
+        else:
+            sub = action_data.get("sub_action")
+            source = action_data.get("source")
+            out_name = action_data.get("output_name")
+            
+            extras = {
+                "pages": action_data.get("pages"),
+                "search": action_data.get("search"),
+                "replace": action_data.get("replace")
+            }
+            
+            res = pdf.run(sub, source, out_name, extras)
             result = out(res)
 
     # 11. GOOGLE (Gmail/Cal)

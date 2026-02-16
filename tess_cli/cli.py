@@ -140,6 +140,7 @@ def main():
     SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
     Guardian = safe_import("tess_cli.core.guardian", "Guardian")
     Sandbox = safe_import("tess_cli.core.sandbox", "Sandbox")
+    PDFSkill = safe_import("tess_cli.skills.pdf_skill", "PDFSkill")
     print()
 
 
@@ -241,6 +242,11 @@ def main():
         comps['sandbox'] = Sandbox(brain)
     else:
         comps['sandbox'] = None
+
+    if PDFSkill:
+        comps['pdf_skill'] = PDFSkill()
+    else:
+        comps['pdf_skill'] = None
 
     # Scheduler
     if TessScheduler:
@@ -344,12 +350,6 @@ def main():
 
             # 1. RUN AGENTIC LOOP (Multi-step Reasoning)
             from .core.agent_loop import AgenticLoop
-            
-            progress_msg = "Thinking..."
-            if user_input.lower() in ["listen", "voice"]:
-                 progress_msg = "Transcription complete. Thinking..."
-            
-            print_thinking(progress_msg)
             
             # Start the loop
             loop = AgenticLoop(brain, comps)
