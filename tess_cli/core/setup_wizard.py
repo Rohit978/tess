@@ -110,7 +110,7 @@ class SetupWizard:
         self._setup_experimental_protocol()
         self._setup_personalization()
 
-    def _save_config(self):
+    def _input(self, prompt, default=None):
         """Helper for input with default."""
         d_str = f" [{default}]" if default is not None else ""
         val = input(f"{prompt}{d_str}: ").strip()
