@@ -24,6 +24,42 @@ class SetupWizard:
                 "gemini": []
             }
 
+    def _setup_personalization(self):
+        print("\n🔹 Step 9: Personalization & UI")
+        
+        # 1. UI Mode
+        print("\nSelect UI Mode:")
+        print("  [1] Minimal (Clean, Fast)")
+        print("  [2] Rich (Panels, heavy)")
+        ui_choice = self._input("Choice", "1")
+        self.config["advanced"]["ui_mode"] = "minimal" if ui_choice == "1" else "rich"
+        
+        # 2. Notifications
+        self.config["advanced"]["notifications"] = self._bool_input("Enable Windows Toast Notifications?", True)
+        
+        # 3. Personality (Updates UserProfile)
+        try:
+            from .user_profile import UserProfile
+            profile = UserProfile()
+            
+            print("\nSelect TESS Personality:")
+            print("  [1] Casual (Default)")
+            print("  [2] Professional (Concise)")
+            print("  [3] Hype-Man (Motivational)")
+            print("  [4] Cate/Warm (Friendly)")
+            print("  [5] Soul (Empathetic)")
+            
+            p_map = {"1": "casual", "2": "professional", "3": "motivational", "4": "cute", "5": "soul"}
+            p_choice = self._input("Choice", "1")
+            
+            new_persona = p_map.get(p_choice, "casual")
+            profile.personality = new_persona
+            profile.save()
+            print(f"  >> Personality set to: {new_persona.upper()}")
+            
+        except Exception as e:
+            print(f"  [Warning] Could not update UserProfile: {e}")
+
     def run(self):
         print("\n🧙‍♂️  TESS TERMINAL PRO - SETUP WIZARD (v5.0)")
         print("==========================================")
@@ -38,10 +74,11 @@ class SetupWizard:
             print("  [6] Advanced AI (Research, Coding)")
             print("  [7] Integrations (Telegram, Librarian)")
             print("  [8] Experimental Protocol (Guardian, Sandbox)")
-            print("  [9] Run Full Setup Wizard (All Steps)")
+            print("  [9] Personalization (UI, Notifications, Persona)")
+            print("  [F] Run Full Setup Wizard (Linear)")
             print("  [0] Save & Exit")
             
-            choice = self._input("\nSelect Option", "0")
+            choice = self._input("\nSelect Option", "0").upper()
             
             if choice == "1": self._setup_llm()
             elif choice == "2": self._setup_security()
@@ -51,7 +88,8 @@ class SetupWizard:
             elif choice == "6": self._setup_ai_features()
             elif choice == "7": self._setup_integrations()
             elif choice == "8": self._setup_experimental_protocol()
-            elif choice == "9": self.run_full_setup()
+            elif choice == "9": self._setup_personalization()
+            elif choice == "F": self.run_full_setup()
             elif choice == "0": 
                 self._save_config()
                 print("\n✅ Configuration Saved. Run 'tess' to start.")
@@ -70,8 +108,9 @@ class SetupWizard:
         self._setup_ai_features()
         self._setup_integrations()
         self._setup_experimental_protocol()
+        self._setup_personalization()
 
-    def _input(self, prompt, default=None):
+    def _save_config(self):
         """Helper for input with default."""
         d_str = f" [{default}]" if default is not None else ""
         val = input(f"{prompt}{d_str}: ").strip()
