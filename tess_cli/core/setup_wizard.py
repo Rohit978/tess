@@ -77,7 +77,7 @@ class SetupWizard:
             print("  [2] Security Settings")
             print("  [3] Core Features (Memory, Web, etc.)")
             print("  [4] Communication (WhatsApp, Gmail)")
-            print("  [5] Media & Web (YouTube, Scraping)")
+            print("  [5] Media & Web (YouTube, Scraping, Screen Share)")
             print("  [6] Advanced AI (Research, Coding)")
             print("  [7] Integrations (Telegram, Librarian)")
             print("  [8] Experimental Protocol (Guardian, Sandbox)")
