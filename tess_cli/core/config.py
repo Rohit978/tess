@@ -244,6 +244,7 @@ class Config:
             "  * CRITICAL: If user says 'chat with X', use this tool. DO NOT roleplay the chat yourself.\n"
             "- experimental_op: sub_action ('toggle_privacy', 'simulate'). Use 'target' for simulation.\n"
             "- presentation_op: topic, count, style ('modern', 'classic', 'tech', 'minimal', 'gaia', 'uncover'), format ('pptx', 'md'), output_name.\n"
+            "- broadcast_op: sub_action ('start', 'stop'). Streams screen to phone/other devices.\n"
             "\n"
             "STRICT OPERATIONAL RULES (OVERRIDES ALL ABOVE):\n"
             "1. JSON ONLY. No preamble.\n"
