@@ -10,7 +10,7 @@ from ..core.orchestrator import process_action
 logger = setup_logger("TelegramBot")
 
 class TessBot:
-    def __init__(self, profile_manager, launcher, browser_ctrl, sys_ctrl, file_mgr, knowledge_db, planner, web_browser, task_registry, whatsapp_client, youtube_client, executor):
+    def __init__(self, profile_manager, launcher, browser_ctrl, sys_ctrl, file_mgr, knowledge_db, planner, web_browser, task_registry, whatsapp_client, youtube_client, executor, screencast=None):
         self.token = Config.TELEGRAM_BOT_TOKEN
         if not self.token:
             raise ValueError("TELEGRAM_BOT_TOKEN not found.")
@@ -30,7 +30,8 @@ class TessBot:
             'task_registry': task_registry,
             'whatsapp_client': whatsapp_client,
             'youtube_client': youtube_client,
-            'executor': executor
+            'executor': executor,
+            'screencast': screencast
         }
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -56,7 +57,7 @@ Just talk to me naturally. I can:
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = str(update.effective_user.id)
         user_text = update.message.text
-        logger.info(f"Telegram User {user_id}: {user_text}")
+        logger.debug(f"Telegram User {user_id}: {user_text}")
         
         status_msg = await context.bot.send_message(chat_id=update.effective_chat.id, text="🧠 Thinking...")
         
@@ -91,5 +92,5 @@ Just talk to me naturally. I can:
         app.add_handler(CommandHandler("help", self.help_command))
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_message))
         
-        logger.info("🤖 Telegram Bot starting poll...")
+        logger.debug("🤖 Telegram Bot starting poll...")
         app.run_polling()

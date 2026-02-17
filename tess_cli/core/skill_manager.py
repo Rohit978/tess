@@ -27,7 +27,7 @@ class SkillManager:
                     filepath = os.path.join(self.skills_dir, filename)
                     with open(filepath, 'r', encoding='utf-8') as f:
                         self.skills_cache[skill_name] = json.load(f)
-            logger.info(f"Loaded {len(self.skills_cache)} skills for user {self.user_id}")
+            logger.debug(f"Loaded {len(self.skills_cache)} skills for user {self.user_id}")
         except Exception as e:
             logger.error(f"Failed to load skills: {e}")
 

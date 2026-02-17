@@ -23,10 +23,17 @@ class WhatsAppClient:
 
     def monitor_chat(self, contact_name, mission=None):
         """Starts the WhatsApp monitor in a background thread."""
+    def monitor_chat(self, contact_name, mission=None):
+        """Starts the WhatsApp monitor in a background thread."""
+        # If no contact provided, we still launch to show the dashboard
+        if not contact_name:
+            logger.info("monitor_chat called with no contact name. Launching dashboard.")
+            # We continue instead of returning, treating contact_name as None
+
+
         if self.monitor_thread and self.monitor_thread.is_alive():
-            logger.info(f"Monitor already running. Switching focus to {contact_name}")
+            logger.debug(f"Monitor already running. Switching focus to {contact_name}")
             self.active_contact = contact_name
-            # In a real implementation, we might need to send a signal to the loop to switch chats
             return
 
         self.stop_event.clear()
@@ -36,19 +43,22 @@ class WhatsAppClient:
             daemon=True
         )
         self.monitor_thread.start()
-        logger.info(f"WhatsApp Monitor thread started for {contact_name}")
+        logger.debug(f"WhatsApp Monitor thread started for {contact_name}")
 
     def stop(self):
         """Stops the monitor loop."""
         self.stop_event.set()
         if self.monitor_thread:
             self.monitor_thread.join(timeout=5)
-        logger.info("WhatsApp Monitor Stopped.")
+        logger.debug("WhatsApp Monitor Stopped.")
 
         
     def send_message(self, contact, message):
         """Queue a message for a specific contact and ensure monitor is running."""
-        logger.info(f"Queuing for {contact}: {message}")
+        if not contact:
+             return "Error: No contact specified."
+        
+        logger.debug(f"Queuing for {contact}: {message}")
         self.msg_queue.put({"contact": contact, "message": message, "action": "send"})
         
         # Auto-start monitor if not running
@@ -72,15 +82,12 @@ class WhatsAppClient:
         Accepts a 'mission' to keep conversation focused.
         """
         self.active_contact = contact_name
-        logger.info(f"Starting WhatsApp Monitor for: {contact_name} (Mission: {mission})")
-        logger.info(f"Brain Provider: {self.brain.provider.upper()} | Model: {self.brain.model}")
+        logger.debug(f"Starting WhatsApp Monitor for: {contact_name} (Mission: {mission})")
         
         with sync_playwright() as p:
             # Launch Persistent Context (Saves Login)
             try:
                 # Add microphone and camera permissions for calls
-                # Reverting to Windows Chrome but we will use specific selectors to find the Call dropdown
-                # The 'Get App' popup is the main blocker, but first we need to CLICK the button.
                 print(f"  {C.DIM}🌐 Launching WhatsApp Browser...{C.R}")
                 
                 # Check for existing context/page to prevent double launch
@@ -101,18 +108,12 @@ class WhatsAppClient:
                 print(f"  {C.DIM}🌐 Navigating to WhatsApp Web...{C.R}")
                 page.goto("https://web.whatsapp.com", timeout=60000)
                 
-                # ... (Login Logic Skipped for brevity in replacement, assume unchanged) ...
-                # Actually I must include it or I replace too much. 
-                # I will target specific chunks to avoid deleting the login logic.
-                
-                # ...
-                
                 # 1. Wait for Login (Main Page Load)
-                logger.info("Waiting for WhatsApp to load...")
+                logger.debug("Waiting for WhatsApp to load...")
                 # Check for SEARCH BOX (indicator of login)
                 try:
                     page.wait_for_selector('div[contenteditable="true"][data-tab="3"]', timeout=45000)
-                    logger.info("Logged in successfully.")
+                    logger.debug("Logged in successfully.")
                 except:
                     qr_path = os.path.join(self.screenshot_dir, "whatsapp_qr.png")
                     page.screenshot(path=qr_path)
@@ -121,6 +122,10 @@ class WhatsAppClient:
                     time.sleep(30)
                 
                 def open_chat(name):
+                    if not name:
+                        logger.warning("open_chat called with None/Empty name.")
+                        return
+
                     print(f"  {C.DIM}💬 Searching for contact: {name}...{C.R}")
                     search_box = page.locator('div[contenteditable="true"][data-tab="3"]')
                     search_box.click()
@@ -137,12 +142,11 @@ class WhatsAppClient:
                     # Capture confirmation screenshot
                     chat_snap = os.path.join(self.screenshot_dir, f"whatsapp_{name.replace(' ', '_')}.png")
                     page.screenshot(path=chat_snap)
-                    print(f"  {C.DIM}📸 Chat screenshot saved to: {chat_snap}{C.R}")
-                    print(f"  {C.CYAN}💡 TIP: Look for the Chromium icon in your taskbar to view the window!{C.R}")
                     
                     self.active_contact = name
 
-                open_chat(contact_name)
+                if contact_name:
+                    open_chat(contact_name)
                 
                 # Initialize state
                 last_msg_text = ""
@@ -189,10 +193,33 @@ class WhatsAppClient:
                             if target and target != self.active_contact:
                                 open_chat(target)
                             
-                            logger.info(f"Sending queued message: {msg}")
-                            page.keyboard.type(msg)
-                            time.sleep(0.5)
-                            page.keyboard.press("Enter")
+                            logger.debug(f"Sending queued message: {msg}")
+                            
+                            # 1. Focus Input Box (Robust Selector)
+                            try:
+                                inp = page.locator('footer div[contenteditable="true"]')
+                                inp.click()
+                                time.sleep(0.2)
+                                
+                                # 2. Type with Human-like Delays
+                                import random
+                                for char in msg:
+                                    page.keyboard.type(char)
+                                    # Random delay: 30ms to 100ms per keystroke
+                                    time.sleep(random.uniform(0.03, 0.1))
+                                
+                                time.sleep(0.5)
+                                page.keyboard.press("Enter")
+                                
+                                # 3. Fallback: Click Send Button if Enter didn't work
+                                time.sleep(0.5)
+                                send_btn = page.locator('button[aria-label="Send"]')
+                                if send_btn.is_visible():
+                                    logger.debug("Enter key failed. Clicking Send button.")
+                                    send_btn.click()
+                                    
+                            except Exception as e:
+                                logger.error(f"Error sending message: {e}")
                             self.brain.update_history("system", f"Sent to {self.active_contact}: {msg}")
                             # Append to our local context context so we "remember" it for next turn
                             style_context += f"\nMe: {msg}"

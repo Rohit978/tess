@@ -19,7 +19,7 @@ class ProfileManager:
         """
         uid = str(user_id)
         if uid not in self.profiles:
-            logger.info(f"Creating new profile for user: {uid}")
+            logger.debug(f"Creating new profile for user: {uid}")
             brain = Brain(user_id=uid, knowledge_db=self.knowledge_db)
             
             # Initialize Skill Manager for this user

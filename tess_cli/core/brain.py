@@ -36,7 +36,10 @@ class Brain:
         self.provider = Config.LLM_PROVIDER
         self.model = Config.LLM_MODEL
         self.current_key_index = 0
-        logger.info(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
+        if Config.LLM_PROVIDER != "gemini": # Show info only if not default to reduce noise
+             logger.info(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
+        else:
+             logger.debug(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
 
     def _get_client(self, provider):
         """
@@ -234,13 +237,20 @@ class Brain:
                  messages.append({"role": "user", "content": "PREVIOUS RESPONSE FAILED JSON VALIDATION. YOU MUST OUTPUT RAW JSON ONLY. NO TEXT. NO MARKDOWN."})
                  try:
                      # Retry ONCE with the same client
-                     retry_completion = client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        response_format={"type": "json_object"},
-                        stream=False
-                     )
-                     response_text = retry_completion.choices[0].message.content
+                     if self.provider == "gemini":
+                         prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+                         resp = client.generate_content(prompt)
+                         response_text = resp.text
+                     else:
+                         # OpenAI/Groq/DeepSeek
+                         retry_completion = client.chat.completions.create(
+                            model=self.model,
+                            messages=messages,
+                            response_format={"type": "json_object"},
+                            stream=False
+                         )
+                         response_text = retry_completion.choices[0].message.content
+                     
                      clean = response_text.replace("```json", "").replace("```", "").strip()
                      cmd = json.loads(clean)
                      self.history.append({"role": "assistant", "content": clean})
@@ -275,7 +285,7 @@ class Brain:
                         self.model = "llama3-8b-8192"
                         return self._execute_llm_request(retry_count + 1)
                     elif self.provider == "gemini" and self.model != "gemini-2.0-flash":
-                        logger.warning(f"Gemini Model {self.model} not found/supported. Falling back to gemini-2.0-flash.")
+                        logger.debug(f"Gemini Model {self.model} not found/supported. Falling back to gemini-2.0-flash.")
                         self.model = "gemini-2.0-flash"
                         return self._execute_llm_request(retry_count + 1)
 

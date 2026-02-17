@@ -12,6 +12,7 @@ setup(
         "groq>=0.4.0",
         "google-generativeai>=0.3.0",
         "chromadb>=0.4.22",
+        "numpy<2.0.0", # Pin to avoid Pydantic/Chroma issues
         "pydantic>=2.0.0",
         "python-dotenv>=1.0.0",
         "requests>=2.31.0",
@@ -45,4 +46,10 @@ setup(
             'tess=tess_cli.cli:main',
         ],
     },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires='>=3.10',
 )

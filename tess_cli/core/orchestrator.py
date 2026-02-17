@@ -17,7 +17,7 @@ def process_action(action_data: dict, components: dict, brain, output_handler=No
     # helper for output
     def out(msg):
         print_tess_action(msg)
-        logger.info(msg)
+        logger.debug(msg)
         if output_handler:
             try:
                 output_handler(msg)
@@ -79,11 +79,21 @@ def process_action(action_data: dict, components: dict, brain, output_handler=No
 
     # 3. APP LAUNCHER
     elif action == "launch_app":
-        if not components.get('launcher'): result = out("App Launcher is disabled.")
+        app_name = action_data.get("app_name") or action_data.get("content")
+        
+        if not components.get('launcher'): 
+            result = out("App Launcher is disabled.")
+        elif not app_name:
+            result = out("ERROR: Missing 'app_name' to launch.")
         else:
-            app_name = action_data.get("app_name")
-            res = components['launcher'].launch_app(app_name)
-            result = out(res)
+            # Special handling for WhatsApp to avoid confusion
+            if "whatsapp" in str(app_name).lower() and components.get('whatsapp'):
+                print(f"  {C.DIM}🌐 Launching WhatsApp Monitor...{C.R}")
+                components['whatsapp'].monitor_chat(None)
+                result = "WhatsApp Monitor Launched."
+            else:
+                res = components['launcher'].launch_app(app_name)
+                result = out(res)
 
     # ─── EXPERIMENTAL (Privacy Aura / Digital Twin) ───
     elif action == "experimental_op":
@@ -207,15 +217,15 @@ def process_action(action_data: dict, components: dict, brain, output_handler=No
                 if query:
                     try:
                         res = client.play_video(query)
-                        result = f"YT Play: {res}"
+                        result = out(f"YT Play: {res}")
                     except Exception as e:
                         print(f"  {C.RED}🔥 YouTube Error: {e}{C.R}")
-                        result = f"Error: {e}"
+                        result = out(f"Error: {e}")
                 else:
-                    result = "Error: No query provided."
+                    result = out("Error: No query provided.")
             else: 
                 # Handle control actions if implemented, or just error
-                result = f"Unknown YT sub_action: {sub}"
+                result = out(f"Unknown YT sub_action: {sub}")
 
     # 8. WHATSAPP
     elif action == "whatsapp_op":
@@ -230,9 +240,13 @@ def process_action(action_data: dict, components: dict, brain, output_handler=No
                 result = out(res)
             elif sub == "monitor" or sub == "chat":
                 contact = action_data.get("contact")
-                print(f"  {C.DIM}💬 Monitoring {contact}...{C.R}")
-                components['whatsapp'].monitor_chat(contact)
-                result = f"Monitoring chat: {contact}"
+                # Handle cases where AI says "None" or contact is missing
+                if contact and str(contact).lower() != "none":
+                    logger.debug(f"Monitoring {contact}...")
+                    components['whatsapp'].monitor_chat(contact)
+                else:
+                    logger.debug("WhatsApp chat/monitor requested without valid contact.")
+                result = out(f"Monitoring chat: {contact}")
 
     # 9. KNOWLEDGE BASE
     elif action == "knowledge_op":

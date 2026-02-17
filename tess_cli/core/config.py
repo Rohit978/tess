@@ -20,6 +20,9 @@ class Config:
     but fall back to `.env` if you're old school.
     """
 
+    # --- VERSIONING ---
+    VERSION = 5
+
     # --- CONSTANTS ---
     HOME_DIR = os.path.expanduser("~")
     TESS_DIR = os.path.join(HOME_DIR, ".tess") # Home sweet home
@@ -28,6 +31,7 @@ class Config:
 
     # --- DEFAULTS ---
     DEFAULT_CONFIG = {
+        "version": 5,
         "llm": {
             "provider": "gemini",
             "model": "gemini-1.5-pro",
@@ -101,12 +105,33 @@ class Config:
             try:
                 with open(cls.CONFIG_PATH, 'r') as f:
                     loaded = json.load(f)
+                    
+                    # --- MIGRATION LOGIC ---
+                    loaded_version = loaded.get("version", 0)
+                    if loaded_version < cls.VERSION:
+                        print(f"⚙️ Config Upgrade: v{loaded_version} -> v{cls.VERSION}")
+                        # Force updates for critical keys that users shouldn't have overridden with old defaults
+                        loaded["llm"]["provider"] = "gemini"
+                        loaded["llm"]["model"] = "gemini-1.5-pro"
+                        loaded["version"] = cls.VERSION
+                        
+                        # Ensure new modules are enabled
+                        if "modules" in loaded:
+                            loaded["modules"]["screencast"] = True
+                            loaded["modules"]["whatsapp"] = True
+                            loaded["modules"]["media"] = True
+                    
                     # Merge with defaults (shallow merge for top keys)
                     for k, v in loaded.items():
                         if k in cls._data and isinstance(v, dict):
                             cls._data[k].update(v)
                         else:
                             cls._data[k] = v
+                            
+                    # Save immediately if migrated
+                    if loaded_version < cls.VERSION:
+                        cls.save()
+                        
             except Exception as e:
                 print(f"[CONFIG] Error loading config.json: {e}")
 

@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-def setup_logger(name="TESS_Terminal", level=logging.INFO):
+def setup_logger(name="TESS_Terminal", level=logging.WARNING):
     """
     Sets up a logger with console and file handlers.
     """

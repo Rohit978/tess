@@ -25,7 +25,7 @@ def setup_logger_local(name):
 
 logger = setup_logger_local("Main")
 
-def start_telegram_bot(profiles, components):
+def start_telegram_bot(profiles, components, screencast=None):
     """Runs the Telegram Bot in a separate thread."""
     try:
         from .interfaces.telegram_bot import TessBot
@@ -44,7 +44,8 @@ def start_telegram_bot(profiles, components):
             task_registry=valid_comps.get('task_registry'),
             whatsapp_client=valid_comps.get('whatsapp'),
             youtube_client=valid_comps.get('youtube_client'),
-            executor=valid_comps.get('executor')
+            executor=valid_comps.get('executor'),
+            screencast=screencast
         )
         bot.run()
     except Exception as e:
@@ -116,6 +117,7 @@ def main():
             mod = __import__(module_path, fromlist=[class_name], globals=globals())
             return getattr(mod, class_name)
         except Exception as e:
+            print(f"DEBUG: Failed to import {class_name} from {module_path}: {e}") # Uncomment for deep debugging
             print_warning(f"{class_name} unavailable: {e}")
             return None
 
@@ -216,8 +218,6 @@ def main():
     else:
         comps['organizer'] = None
 
-
-        
     # Google (Gmail/Cal)
     if GoogleClient and (Config.is_module_enabled("gmail") or Config.is_module_enabled("calendar")):
          comps['google_client'] = GoogleClient()
@@ -269,7 +269,7 @@ def main():
     # Telegram
     if Config.TELEGRAM_BOT_TOKEN and Config._data.get("integrations", {}).get("telegram", {}).get("enabled", False):
         print_info("🤖 Starting Telegram...")
-        threading.Thread(target=start_telegram_bot, args=(profiles, comps), daemon=True).start()
+        threading.Thread(target=start_telegram_bot, args=(profiles, comps, comps.get('screencast')), daemon=True).start()
 
     # ─── User Profile ───
     comps['user_profile'] = user_profile
