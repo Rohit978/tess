@@ -142,6 +142,7 @@ def main():
     Sandbox = safe_import("tess_cli.core.sandbox", "Sandbox")
     PDFSkill = safe_import("tess_cli.skills.pdf_skill", "PDFSkill")
     PresentationSkill = safe_import("tess_cli.skills.presentation_skill", "PresentationSkill")
+    ScreencastSkill = safe_import("tess_cli.skills.screencast", "ScreencastSkill")
     print()
 
 
@@ -253,6 +254,12 @@ def main():
         comps['presentation_skill'] = PresentationSkill(brain)
     else:
         comps['presentation_skill'] = None
+
+    # Screencast
+    if ScreencastSkill:
+        comps['screencast'] = ScreencastSkill(port=8000)
+    else:
+        comps['screencast'] = None
 
     # Scheduler
     if TessScheduler:

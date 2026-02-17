@@ -291,6 +291,25 @@ def process_action(action_data: dict, components: dict, brain, output_handler=No
             res = pres.run("create", topic, count, style, fmt, out_name)
             result = out(res)
 
+    # 13. SCREEN BROADCAST
+    elif action == "broadcast_op":
+        cast = components.get('screencast')
+        if not cast: result = out("Screencast Skill is disabled.")
+        else:
+            sub = action_data.get("sub_action")
+            if sub == "start":
+                res = cast.start()
+                msg = f"📱 Broadcast LIVE: {res}"
+                out(msg)
+                # print nice box
+                from rich.panel import Panel
+                from .terminal_ui import console
+                console.print(Panel(f"[bold green]Scan QR or Open:[/bold green]\n{res}", title="📡 SCREENCAST ONLINE", border_style="green"))
+                result = msg
+            elif sub == "stop":
+                res = cast.stop()
+                result = out(res)
+
     # 11. GOOGLE (Gmail/Cal)
     elif action == "gmail_op" or action == "calendar_op":
         gc = components.get('google_client')
