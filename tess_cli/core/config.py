@@ -55,7 +55,8 @@ class Config:
             "researcher": True,
             "command_indexer": True,
             "privacy_aura": False,
-            "digital_twin": False
+            "digital_twin": False,
+            "screencast": True
         },
         "advanced": {
             "notifications": True,
