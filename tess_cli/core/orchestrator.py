@@ -4,7 +4,7 @@ from .terminal_ui import C, print_tess_message, print_tess_action, print_error, 
 
 logger = setup_logger("Orchestrator")
 
-def process_action(action_data: dict, components: dict, brain):
+def process_action(action_data: dict, components: dict, brain, output_handler=None):
     """
     🎭 The Grand Orchestrator
     
@@ -18,11 +18,23 @@ def process_action(action_data: dict, components: dict, brain):
     def out(msg):
         print_tess_action(msg)
         logger.info(msg)
+        if output_handler:
+            try:
+                output_handler(msg)
+            except Exception as e:
+                logger.error(f"Output Handler Failed: {e}")
         return msg
 
     # 1. REPLY / CONVERSATION
     if action == "reply_op" or action == "final_reply":
         content = action_data.get("content", "")
+        
+        # Send to Output Handler (Telegram/Interface)
+        if output_handler:
+             try:
+                 output_handler(content)
+             except: pass
+
         if action == "final_reply":
             from .terminal_ui import console
             from rich.panel import Panel
