@@ -243,6 +243,7 @@ class SetupWizard:
         mods = self.config["modules"]
         mods["media"] = self._bool_input("Enable YouTube Player?", True)
         mods["web_scraping"] = self._bool_input("Enable Web Scraping?", True)
+        mods["screencast"] = self._bool_input("Enable Screen Broadcasting (Remote Control)?", True)
 
     def _setup_ai_features(self):
         print("\n🔹 Step 6: Advanced AI Capabilities")
