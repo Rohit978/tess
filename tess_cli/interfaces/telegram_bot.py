@@ -28,7 +28,7 @@ class TessBot:
             'planner': planner,
             'web_browser': web_browser,
             'task_registry': task_registry,
-            'whatsapp_client': whatsapp_client,
+            'whatsapp': whatsapp_client, # Renamed from 'whatsapp_client' to match orchestrator
             'youtube_client': youtube_client,
             'executor': executor,
             'screencast': screencast

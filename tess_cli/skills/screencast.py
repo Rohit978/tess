@@ -67,6 +67,7 @@ HTML_PAGE = """
         <div id="status" title="Live"></div>
         
         <button class="btn" onclick="toggleKeyboard()" title="Keyboard">⌨️</button>
+        <button class="btn" id="touch-btn" onclick="toggleTouchMode()" title="Toggle Touch Mode">👆</button>
         
         <div class="slider-cont">
             <span class="label">Quality</span>
@@ -82,83 +83,112 @@ HTML_PAGE = """
         const img = document.getElementById('stream');
         const container = document.body;
         
-        // State for Zoom/Pan
+        // State
         let scale = 1;
         let panX = 0;
         let panY = 0;
         let isDragging = false;
         let startX, startY;
+        
+        // Touch Mode State
+        let isTouchMode = false;
+        let touchStartY = 0;
+        let touchStartX = 0;
+        let isScrolling = false;
+
+        function toggleTouchMode() {
+            isTouchMode = !isTouchMode;
+            const btn = document.getElementById('touch-btn');
+            btn.style.filter = isTouchMode ? 'none' : 'grayscale(1)';
+            btn.style.transform = isTouchMode ? 'scale(1.1)' : 'scale(1)';
+            // Visual feedback
+            const status = document.getElementById('status');
+            status.style.background = isTouchMode ? 'cyan' : '#00ff00';
+            status.style.boxShadow = isTouchMode ? '0 0 10px cyan' : '0 0 10px #00ff00';
+        }
 
         // --- ZOOM & PAN (Desktop/Mobile) ---
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = -Math.sign(e.deltaY) * 0.1;
             const newScale = Math.max(1, Math.min(5, scale + delta));
-            
-            // Zoom towards center (simplified)
             scale = newScale;
             updateTransform();
         }, {passive: false});
 
-        // Touch handling for pan (Pinch is harder, sticking to simple pan for now or simple zoom buttons if needed)
-        // For now, let's just allow panning if zoomed in
+        // Pointer Handling (Unified for Mouse/Touch)
         container.addEventListener('pointerdown', (e) => {
-            if (scale > 1 && e.target !== img) {
+            // If interacting with dock or controls, ignore
+            if (e.target.closest('#dock') || e.target.closest('#kbd-input')) return;
+
+            if (scale > 1) {
+                 // Pan Logic when Zoomed
                  isDragging = true;
                  startX = e.clientX - panX;
                  startY = e.clientY - panY;
+            } else if (isTouchMode) {
+                 // Touch Mode: Prepare for Scroll or Tap
+                 isScrolling = true;
+                 touchStartY = e.clientY;
+                 touchStartX = e.clientX;
+            } else {
+                 // Mouse Mode: Direct Click (handled by img listener mostly, but let's be explicitly safe)
             }
         });
         
         container.addEventListener('pointermove', (e) => {
-            if (isDragging) {
+            if (isDragging && scale > 1) {
                 e.preventDefault();
                 panX = e.clientX - startX;
                 panY = e.clientY - startY;
                 updateTransform();
+                return;
+            }
+            
+            if (isScrolling && isTouchMode && scale === 1) {
+                // Scroll Logic
+                e.preventDefault();
+                const dy = e.clientY - touchStartY;
+                // Threshold to avoid accidental micro-scrolls on taps
+                if (Math.abs(dy) > 5) {
+                    sendInput('scroll', {dy: dy / 10}); // Divider to tame speed
+                    touchStartY = e.clientY; // Reset for continuous delta
+                }
             }
         });
         
-        container.addEventListener('pointerup', () => isDragging = false);
+        container.addEventListener('pointerup', (e) => {
+            isDragging = false;
+            
+            if (isScrolling && isTouchMode && scale === 1) {
+                isScrolling = false;
+                // Check if it was a Tap (minimal movement)
+                const dist = Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+                if (dist < 10) {
+                    // It's a TAP -> Click
+                    sendInput('click', getCoords(e));
+                }
+            }
+        });
 
         function updateTransform() {
-            // Boundary checks could be added here
             img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
         }
 
-        // --- REMOTE INPUT (Click/Drag on Stream) ---
-        // distinct from Panning the view
+        // --- MOUSE MODE INPUT (Legacy/Precision) ---
         img.addEventListener('pointerdown', (e) => {
-            if(scale === 1) sendInput('mousedown', getCoords(e));
+            if(!isTouchMode && scale === 1) sendInput('mousedown', getCoords(e));
         });
         img.addEventListener('pointerup', (e) => {
-             if(scale === 1) sendInput('mouseup', getCoords(e));
+             if(!isTouchMode && scale === 1) sendInput('mouseup', getCoords(e));
         });
-        
-        // TODO: Advanced logic needed to map coordinates when zoomed.
-        // For now, valid inputs only when Scale = 1 to prevent misclicks.
         
         function getCoords(e) {
             const rect = img.getBoundingClientRect();
-            // With CSS transform, getBoundingClientRect returns the SCALED dimensions/pos
-            
-            // Standard object-fit calculation
-            const scaleX = img.naturalWidth / rect.width;
-            const scaleY = img.naturalHeight / rect.height;
-            
-            // ... (this gets complex with Pan/Zoom transforms)
-            // Reverting to simple implementation: Input allowed only at 1x scale for safety.
-            
             const rw = rect.width; 
             const rh = rect.height;
-            
-            // If object-fit: contain is active, we need the actual rendered image content rect
-            // But getBoundingClientRect on a transformed IMG element includes the whitespace if constrained?
-            // Actually, let's keep it simple.
-            
             const safeX = (e.clientX - rect.left) / rw;
             const safeY = (e.clientY - rect.top) / rh;
-            
             return {x: Math.max(0, Math.min(1, safeX)), y: Math.max(0, Math.min(1, safeY))};
         }
 
@@ -291,6 +321,12 @@ class StreamingHandler(BaseHTTPRequestHandler):
                 if key == "enter": pyautogui.press('enter')
                 elif key == "backspace": pyautogui.press('backspace')
                 else: pyautogui.write(key)
+            
+            elif data['type'] == 'scroll':
+                # dy is vertical scroll amount
+                dy = int(data.get('dy', 0))
+                if dy != 0:
+                    pyautogui.scroll(dy * 50) # Multiplier for sensitivity
                 
         except Exception as e:
             logger.error(f"Input Error: {e}")
