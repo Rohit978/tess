@@ -66,7 +66,14 @@ It combines **Local Execution** (PowerShell, Python) with **Cloud Intelligence**
 - Python 3.10+
 - Chrome/Chromium (for Playwright)
 
-### 1. Clone & Install
+### Option 1: Quick Install (pip)
+```bash
+pip install git+https://github.com/Rohit978/tess.git
+playwright install
+tess init
+```
+
+### Option 2: Development Install (Clone)
 ```bash
 git clone https://github.com/Rohit978/tess.git
 cd tess
