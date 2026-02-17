@@ -177,6 +177,15 @@ class PDFOpAction(BaseAction):
     replace: Optional[str] = None
     content: Optional[str] = None
 
+# 26. Presentation Operations
+class PresentationOpAction(BaseAction):
+    action: Literal["presentation_op"]
+    topic: str
+    count: Optional[int] = 5
+    style: Optional[Literal["modern", "classic", "tech", "minimal", "gaia", "uncover"]] = "modern"
+    format: Optional[Literal["pptx", "md"]] = "pptx"
+    output_name: Optional[str] = None
+
 # 27. Screen Broadcast Operations
 class BroadcastAction(BaseAction):
     action: Literal["broadcast_op"]
