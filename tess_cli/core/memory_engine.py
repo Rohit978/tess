@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime
 from .logger import setup_logger
+from .config import Config
 
 logger = setup_logger("MemoryEngine")
 
@@ -14,7 +15,9 @@ class MemoryEngine:
     
     def __init__(self, user_id="default"):
         self.user_id = user_id
-        self.memory_dir = os.path.join(os.getcwd(), "tess_memory")
+        
+        # Use centralized directory instead of os.getcwd() to guarantee persistence
+        self.memory_dir = os.path.join(Config.TESS_DIR, "tess_memory")
         self.memory_file = os.path.join(self.memory_dir, f"{user_id}_memory.json")
         self._ensure_memory_file()
         self.memories = self._load_memory()

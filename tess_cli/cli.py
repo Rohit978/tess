@@ -3,384 +3,315 @@ import os
 import warnings
 import time
 import threading
+import logging
 
 # Suppress annoying warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
 warnings.filterwarnings("ignore", message=".*google.generativeai.*")
-warnings.filterwarnings("ignore", category=FutureWarning, message=".*Python version.*")
 
-# Lazy Imports handled in main() to prevent startup crashes (e.g. ChromaDB/Pydantic issues)
+# Add project root to path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-def setup_logger_local(name):
-    # Minimal logger setup if core logger fails
-    import logging
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
-    return logger
+from .core.terminal_ui import (
+    print_banner, boot_sequence, print_provider_info, print_ready, get_prompt,
+    print_thinking, clear_thinking, print_tess_action, print_error, 
+    print_warning, print_success, print_info, print_goodbye, print_help, 
+    print_greeting, print_fact_learned, print_stats_dashboard, console
+)
 
-logger = setup_logger_local("Main")
+from .core.user_profile import UserProfile
+from .core.profile_manager import ProfileManager
+from .core.orchestrator import process_action
+from .core.logger import setup_logger
+from .core.executor import Executor
+from .core.config import Config
+from .core.security import SecurityEngine
+
+# Components
+from .core.app_launcher import AppLauncher
+from .core.system_controller import SystemController
+from .core.file_manager import FileManager
+from .core.knowledge_base import KnowledgeBase
+from .core.planner import Planner
+from .core.web_browser import WebBrowser
+from .core.task_registry import TaskRegistry
+from .core.whatsapp_client import WhatsAppClient
+from .core.youtube_client import YouTubeClient
+from .core.voice_client import VoiceClient
+from .core.organizer import Organizer
+from .core.google_client import GoogleClient
+from .core.coding_engine import CodingEngine
+from .core.coding_agent import CodingAgent
+from .core.command_indexer import CommandIndexer
+from .core.researcher import Researcher
+from .core.librarian import Librarian
+from .core.scheduler import TessScheduler
+from .core.guardian import Guardian
+from .core.sandbox import Sandbox
+from .core.ralph_loop import RalphOrchestrator
+
+# Skills
+from .skills.project_director import ProjectDirector
+from .skills.sysadmin import SysAdminSkill
+from .skills.pdf_skill import PDFSkill
+from .skills.presentation_skill import PresentationSkill
+
+logger = setup_logger("Main")
 
 def start_telegram_bot(profiles, components, screencast=None):
     """Runs the Telegram Bot in a separate thread."""
     try:
         from .interfaces.telegram_bot import TessBot
-        # Filter None components
         valid_comps = {k: v for k, v in components.items() if v is not None}
         
         bot = TessBot(
             profile_manager=profiles,
             launcher=valid_comps.get('launcher'),
-            browser_ctrl=valid_comps.get('browser_ctrl'),
             sys_ctrl=valid_comps.get('sys_ctrl'),
             file_mgr=valid_comps.get('file_mgr'),
             knowledge_db=valid_comps.get('knowledge_db'),
             planner=valid_comps.get('planner'),
             web_browser=valid_comps.get('web_search'),
             task_registry=valid_comps.get('task_registry'),
-            whatsapp_client=valid_comps.get('whatsapp'),
+            whatsapp=valid_comps.get('whatsapp'),
             youtube_client=valid_comps.get('youtube_client'),
             executor=valid_comps.get('executor'),
             screencast=screencast
         )
-        bot.run()
+        
+        while True:
+            try:
+                bot.run()
+                break # Normal exit
+            except Exception as loop_e:
+                logger.error(f"Telegram Bot failed: {loop_e}. Retrying in 10s...")
+                time.sleep(10)
+
     except Exception as e:
-        logger.error(f"Telegram Bot failed: {e}")
+        logger.error(f"Telegram Bot initialization failed: {e}")
 
 def main():
-    # Import UI first (no external deps, always works)
-    from .core.terminal_ui import (
-        C, print_banner, print_divider, animate_boot, print_status,
-        boot_sequence, print_provider_info, print_ready, get_prompt,
-        print_thinking, clear_thinking, print_tess_message, print_tess_action,
-        print_error, print_security_block, print_warning, print_success,
-        print_info, print_goodbye, print_help, print_greeting, print_fact_learned, print_stats_dashboard,
-        console
-    )
-    from .core.user_profile import UserProfile
-
-    # 0. Check for Setup/Init (FAST EXIT) ⚡
-    # If the user runs 'tess init', we launch the wizard immediately.
+    # Fast Exit for Init
     if len(sys.argv) > 1 and sys.argv[1].lower() == "init":
-        try:
-            from .core.setup_wizard import SetupWizard
-            SetupWizard().run()
-        except ImportError as e:
-            print_error(f"Could not load Setup Wizard: {e}")
-            print_info("Ensure dependencies are installed: pip install -r requirements.txt")
+        from .core.setup_wizard import SetupWizard
+        SetupWizard().run()
         return
 
-    # Show the awesome banner 🎨
+    # Fast Exit for Ralph Build Loop
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "build":
+        target_dir = sys.argv[2] if len(sys.argv) > 2 else "."
+        print_banner()
+        print_info(f"Initializing TESS Ralph Builder in {target_dir}")
+        
+        # We need a headless brain and coding engine to run Ralph
+        try:
+            user_profile = UserProfile()
+            profiles = ProfileManager()
+            brain = profiles.get_brain("terminal_user")
+            brain.personality = user_profile.personality
+            
+            coding_engine = CodingEngine(brain)
+            ralph = RalphOrchestrator(coding_engine)
+            ralph.run_loop(target_dir)
+            
+        except Exception as e:
+            print_error(f"Ralph Build Loop crashed: {e}")
+            logger.error(e, exc_info=True)
+        return
+
+    # Fast Exit for Coding Mode: tess code [path]
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "code":
+        target_dir = sys.argv[2] if len(sys.argv) > 2 else "."
+        print_banner()
+        print_info("Launching TESS Coding Mode...")
+        try:
+            user_profile = UserProfile()
+            profiles = ProfileManager()
+            brain = profiles.get_brain("terminal_user")
+            brain.personality = user_profile.personality
+            
+            agent = CodingAgent(brain, workspace_path=target_dir)
+            agent.start()
+        except Exception as e:
+            print_error(f"Coding Mode crashed: {e}")
+            logger.error(e, exc_info=True)
+        return
+
     print_banner()
 
-    # Add paths
-    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-    # 🛡️ GLOBAL SAFETY NET: Catch unhandled crashes
-    def global_exception_handler(exctype, value, tb):
-        """Catches any nasty bugs that slip through the cracks."""
-        if exctype == KeyboardInterrupt:
-            # Let Ctrl+C exit normally
-            sys.__excepthook__(exctype, value, tb)
-            return
-            
-        print_error(f"🙈 Oops! An unhandled error occurred: {value}")
-        logger.error("Global Exception Caught:", exc_info=(exctype, value, tb))
-        # Don't exit! Try to keep running if possible, or just log.
-    
-    sys.excepthook = global_exception_handler
-
-    # 1. Import ESSENTIAL modules (The Brains & Heart of TESS)
+    # Core Initialization
     try:
-        from .core.profile_manager import ProfileManager
-        from .core.orchestrator import process_action
-        from .core.logger import setup_logger
-        from .core.executor import Executor
-        from .core.config import Config
-        from .core.security import SecurityEngine
+        user_profile = UserProfile()
+        knowledge_db = KnowledgeBase() if Config.is_module_enabled("memory") else None
+        profiles = ProfileManager(knowledge_db=knowledge_db)
+        executor = Executor(safe_mode=Config.SAFE_MODE)
+        security = SecurityEngine(level=Config.get_security_level())
         
-        global logger
-        logger = setup_logger("Main")
+        brain = profiles.get_brain("terminal_user")
+        brain.personality = user_profile.personality
+        brain.history[0]["content"] = Config.get_system_prompt(user_profile.personality)
     except Exception as e:
-        print_error(f"Failed to import essential modules: {e}")
-        # Only crash if we can't even start the brain
+        print_error(f"Core initialization failed: {e}")
         sys.exit(1)
 
-    # 2. Import OPTIONAL modules individually (each can fail without killing TESS)
-    def safe_import(module_path, class_name):
-        """Import a class, return None if it fails."""
-        try:
-            mod = __import__(module_path, fromlist=[class_name], globals=globals())
-            return getattr(mod, class_name)
-        except Exception as e:
-            print(f"DEBUG: Failed to import {class_name} from {module_path}: {e}") # Uncomment for deep debugging
-            print_warning(f"{class_name} unavailable: {e}")
-            return None
+    # Component Registration
+    comps = {
+        'brain': brain,
+        'executor': executor,
+        'security': security,
+        'launcher': AppLauncher(),
+        'sys_ctrl': SystemController(),
+        'file_mgr': FileManager(),
+        'task_registry': TaskRegistry(),
+        'sysadmin': SysAdminSkill(),
+        'command_indexer': CommandIndexer(knowledge_db),
+        'knowledge_db': knowledge_db,
+        'user_profile': user_profile
+    }
 
-    AppLauncher = safe_import("tess_cli.core.app_launcher", "AppLauncher")
-    BrowserController = safe_import("tess_cli.core.browser_controller", "BrowserController")
-    SystemController = safe_import("tess_cli.core.system_controller", "SystemController")
-    FileManager = safe_import("tess_cli.core.file_manager", "FileManager")
-    KnowledgeBase = safe_import("tess_cli.core.knowledge_base", "KnowledgeBase")
-    Planner = safe_import("tess_cli.core.planner", "Planner")
-    WebBrowser = safe_import("tess_cli.core.web_browser", "WebBrowser")
-    TaskRegistry = safe_import("tess_cli.core.task_registry", "TaskRegistry")
-    WhatsAppClient = safe_import("tess_cli.core.whatsapp_client", "WhatsAppClient")
-    YouTubeClient = safe_import("tess_cli.core.youtube_client", "YouTubeClient")
-    VoiceClient = safe_import("tess_cli.core.voice_client", "VoiceClient")
-    Organizer = safe_import("tess_cli.core.organizer", "Organizer")
-    GoogleClient = safe_import("tess_cli.core.google_client", "GoogleClient")
-    CodingEngine = safe_import("tess_cli.core.coding_engine", "CodingEngine")
-    CommandIndexer = safe_import("tess_cli.core.command_indexer", "CommandIndexer")
-    Researcher = safe_import("tess_cli.core.researcher", "Researcher")
-    Librarian = safe_import("tess_cli.core.librarian", "Librarian")
-    TessScheduler = safe_import("tess_cli.core.scheduler", "TessScheduler")
-    SysAdminSkill = safe_import("tess_cli.skills.sysadmin", "SysAdminSkill")
-    Guardian = safe_import("tess_cli.core.guardian", "Guardian")
-    Sandbox = safe_import("tess_cli.core.sandbox", "Sandbox")
-    PDFSkill = safe_import("tess_cli.skills.pdf_skill", "PDFSkill")
-    PresentationSkill = safe_import("tess_cli.skills.presentation_skill", "PresentationSkill")
-    ScreencastSkill = safe_import("tess_cli.skills.screencast", "ScreencastSkill")
-    print()
+    # Conditional Features
+    if Config.is_module_enabled("web_search"):
+        web_browser = WebBrowser()
+        comps['web_search'] = web_browser
+        comps['researcher'] = Researcher(brain, knowledge_db, web_browser)
+    
+    if Config.is_module_enabled("coding"):
+        comps['coding_engine'] = CodingEngine(brain)
+        comps['coding_agent'] = CodingAgent(brain)
 
-
-    # ─── User Profile ───
-    user_profile = UserProfile()
-    
-    # Init Core
-
-    knowledge_db = KnowledgeBase() if KnowledgeBase and Config.is_module_enabled("memory") else None
-    profiles = ProfileManager(knowledge_db=knowledge_db)
-    
-    executor = Executor(safe_mode=Config.SAFE_MODE)
-    security = SecurityEngine(level=Config.get_security_level())
-    
-    brain = profiles.get_brain("terminal_user")
-    # Update brain personality from profile
-    brain.personality = user_profile.personality
-    brain.history[0]["content"] = Config.get_system_prompt(user_profile.personality)
-    
-    # Initialize Components with Toggles
-    comps = {}
-    
-    # Core (create if class available)
-    comps['brain'] = brain
-    comps['executor'] = executor
-    comps['security'] = security
-    comps['launcher'] = AppLauncher() if AppLauncher else None
-    comps['sys_ctrl'] = SystemController() if SystemController else None
-    comps['file_mgr'] = FileManager() if FileManager else None
-    comps['task_registry'] = TaskRegistry() if TaskRegistry else None
-    comps['browser_ctrl'] = BrowserController() if BrowserController else None
-    comps['sysadmin'] = SysAdminSkill() if SysAdminSkill else None
-    comps['command_indexer'] = CommandIndexer(knowledge_db) if CommandIndexer else None
-    
-    # Conditional Modules
-    comps['knowledge_db'] = knowledge_db
-    comps['coding_engine'] = CodingEngine(brain) if CodingEngine else None
-    
-    # Web Search
-    web_browser = WebBrowser() if WebBrowser and (Config.is_module_enabled("web_search") or Config.is_module_enabled("web_scraping")) else None
-    comps['web_search'] = web_browser
-
-    # Researcher
-    comps['researcher'] = Researcher(brain, knowledge_db, web_browser) if Researcher and knowledge_db and web_browser else None
-
-    # Planner
-    if Planner and Config.is_module_enabled("planner"):
+    if Config.is_module_enabled("planner"):
         comps['planner'] = Planner(brain)
-    else:
-        comps['planner'] = None
 
-    # WhatsApp
-    if WhatsAppClient and Config.is_module_enabled("whatsapp"):
-        vc = VoiceClient(model_size="base") if VoiceClient else None
+    if Config.is_module_enabled("whatsapp"):
+        vc = VoiceClient(model_size="base")
         comps['whatsapp'] = WhatsAppClient(brain, voice_client=vc)
-    else:
-        comps['whatsapp'] = None
+        comps['voice_client'] = vc
 
-    # Voice
-    comps['voice_client'] = VoiceClient(model_size="base") if VoiceClient else None
-
-    # YouTube
-    if YouTubeClient and Config.is_module_enabled("media"):
+    if Config.is_module_enabled("media"): 
         comps['youtube_client'] = YouTubeClient(headless=False)
-    else:
-        comps['youtube_client'] = None
 
-    # Organizer
-    if Organizer and Config.is_module_enabled("file_organizer"):
+    if Config.is_module_enabled("file_organizer"):
         comps['organizer'] = Organizer(brain)
-    else:
-        comps['organizer'] = None
 
-    # Google (Gmail/Cal)
-    if GoogleClient and (Config.is_module_enabled("gmail") or Config.is_module_enabled("calendar")):
-         comps['google_client'] = GoogleClient()
-    else:
-         comps['google_client'] = None
+    if Config.is_module_enabled("gmail") or Config.is_module_enabled("calendar"):
+        comps['google_client'] = GoogleClient()
 
-    # Librarian
-    librarian = None
-    if Librarian and Config._data.get("integrations", {}).get("librarian", {}).get("enabled", False):
-        watch_path = Config._data["integrations"]["librarian"].get("watch_path", ".")
-        if watch_path == ".": watch_path = os.getcwd()
-        
-        librarian = Librarian(knowledge_db, watch_path=watch_path)
-        print_info("📚 Librarian (Active Learning) starting...")
-        librarian.start()
-
-    # ─── EXPERIMENTAL MODULES ───
-    if Guardian and Config.is_module_enabled("privacy_aura"):
-        comps['guardian'] = Guardian(comps['sys_ctrl'])
-    else:
-        comps['guardian'] = None
-        
-    if Sandbox and Config.is_module_enabled("digital_twin"):
-        comps['sandbox'] = Sandbox(brain)
-    else:
-        comps['sandbox'] = None
-
-    if PDFSkill:
-        comps['pdf_skill'] = PDFSkill(brain)
-    else:
-        comps['pdf_skill'] = None
-
-    if PresentationSkill:
-        comps['presentation_skill'] = PresentationSkill(brain)
-    else:
-        comps['presentation_skill'] = None
-
-    # Screencast
-    if ScreencastSkill:
-        comps['screencast'] = ScreencastSkill(port=8000)
-    else:
-        comps['screencast'] = None
-
-    # Scheduler
-    if TessScheduler:
-        tess_scheduler = TessScheduler(brain=brain)
-        tess_scheduler.start()
+    # Skills (Legacy & Plugins)
+    comps['pdf_skill'] = PDFSkill(brain)
+    comps['presentation_skill'] = PresentationSkill(brain)
+    comps['director'] = ProjectDirector(brain)
     
-    # Telegram
-    if Config.TELEGRAM_BOT_TOKEN and Config._data.get("integrations", {}).get("telegram", {}).get("enabled", False):
-        print_info("🤖 Starting Telegram...")
-        threading.Thread(target=start_telegram_bot, args=(profiles, comps, comps.get('screencast')), daemon=True).start()
+    # Dynamic Plugin Loader
+    from .core.skill_loader import SkillLoader
+    skill_loader = SkillLoader(brain)
+    skill_registry = skill_loader.load_skills()
+    comps['skill_registry'] = skill_registry
+    
+    # Add loaded skills to comps for access if needed (optional)
+    # comps.update(skill_loader.skills)
 
-    # ─── User Profile ───
-    comps['user_profile'] = user_profile
+    # Missing Skills Added
+    from .skills.trip_planner import TripPlannerSkill
+    from .skills.converter import FileConverter
+    from .core.skill_manager import SkillManager
 
-    # ─── Boot Dashboard ───
+    if Config.is_module_enabled("trip_planner"):
+        comps['trip_planner'] = TripPlannerSkill(brain)
+    
+    if Config.is_module_enabled("file_converter"):
+        comps['converter'] = FileConverter()
+
+    if Config.is_module_enabled("skills"): # Legacy Skill Manager
+        # Use user name or default
+        uid = user_profile.name or "default"
+        comps['skill_manager'] = SkillManager(user_id=uid)
+
+    # Local Design Skills
+    from .skills.design_genius import DesignGenius
+    comps['design_genius'] = DesignGenius(brain)
+
+    # Background Services
+    if Config._data.get("integrations", {}).get("librarian", {}).get("enabled", False):
+        path = Config._data["integrations"]["librarian"].get("watch_path", os.getcwd())
+        Librarian(knowledge_db, watch_path=path).start()
+        print_info("Librarian active.")
+
+    TessScheduler(brain=brain).start()
+
+    if Config.TELEGRAM_BOT_TOKEN:
+        print_info("Starting Telegram Bot...")
+        # Get Screencast from loader if available
+        screencast_skill = skill_loader.skills.get('Screencast')
+        threading.Thread(target=start_telegram_bot, args=(profiles, comps, screencast_skill), daemon=True).start()
+
+    # Experimental
+    if Config.is_module_enabled("privacy_aura"):
+        comps['guardian'] = Guardian(comps['sys_ctrl'])
+        
+    if Config.is_module_enabled("digital_twin"):
+        comps['sandbox'] = Sandbox(brain)
+
+    # Boot Sequence
     boot_sequence(comps, Config._data)
     print_provider_info(Config.LLM_PROVIDER, Config.LLM_MODEL)
-    print_stats_dashboard(user_profile.get_stats_summary())
-
-    # ─── Personal Greeting ───
-    greeting, extras = user_profile.get_greeting()
-    print_greeting(greeting, extras)
     print_ready()
-    
-    # ─── Main Loop ───
+
+    # Main Loop
     while True:
         try:
-            # Use rich console.input to render the prompt styles correctly
             user_input = console.input(get_prompt()).strip()
             if not user_input: continue
             
-            # Exit
+            # System Commands
             if user_input.lower() in ["exit", "quit"]:
                 user_profile.save()
-                print_goodbye(user_profile.name)
                 break
-            
-            # Help
+                
             if user_input.lower() == "help":
                 print_help()
                 continue
 
-            # Status
             if user_input.lower() == "status":
                 boot_sequence(comps, Config._data)
-                print_provider_info(Config.LLM_PROVIDER, Config.LLM_MODEL)
                 continue
 
-            # Direct Commands
-            if user_input.lower() == "learn apps":
-                if comps.get('launcher'):
-                    res = comps['launcher'].scan_apps()
-                    print_success(res)
-                else:
-                    print_warning("App Launcher is disabled.")
-                continue
-            
-            if user_input.lower() == "learn commands":
-                print_info("Starting Command Indexing...")
-                res = comps['command_indexer'].index_system_commands()
-                print_success(res)
-                continue
-
-            if user_input.lower().startswith("watch ") and librarian:
-                path = user_input[6:].strip()
-                if path == ".": path = os.getcwd()
-                success, msg = librarian.change_watch_path(path)
-                print_info(f"📚 {msg}")
-                continue
-            
-            # Persona Switching
+            # Persona
             if user_input.lower().startswith("persona "):
                 target = user_input[8:].strip().lower()
                 if target in Config.PERSONALITY_PROMPTS:
                     brain.personality = target
                     brain.history[0]["content"] = Config.get_system_prompt(target)
-                    print_success(f"Persona switched to: [bold magenta]{target.upper()}[/bold magenta]")
-                    if target == "soul":
-                        print_info("✨ Heart-to-Heart mode enabled. TESS is now more empathetic.")
-                else:
-                    print_warning(f"Unknown personality: {target}. Available: {', '.join(Config.PERSONALITY_PROMPTS.keys())}")
+                    print_success(f"Persona: {target.upper()}")
                 continue
-            
-            # Voice Input
-            if user_input.lower() in ["listen", "voice"]:
-                if comps.get('voice_client'):
-                    path = comps['voice_client'].listen()
-                    if path:
-                        txt = comps['voice_client'].transcribe(path)
-                        print_info(f"You said: {txt}")
-                        if txt: user_input = txt
-                        else: continue
+
+            # Director Mode
+            if user_input.lower().startswith("director:"):
+                comps['director'].loop(user_input[9:].strip())
+                continue
+
+            # Coding Mode
+            if user_input.lower().startswith("code"):
+                agent = comps.get('coding_agent')
+                if agent:
+                    path = user_input[4:].strip() or os.getcwd()
+                    agent.start(path)
                 else:
-                    print_warning("Voice client unavailable")
-                    continue
+                    print_warning("Coding module not enabled. Run 'tess init' to configure.")
+                continue
 
-            # 0. AUTO-LEARN FACTS from user message
-            facts = user_profile.extract_facts_from_text(user_input)
-            if facts:
-                print_fact_learned(facts)
-
-            # 1. RUN AGENTIC LOOP (Multi-step Reasoning)
+            # Agent Loop
             from .core.agent_loop import AgenticLoop
+            AgenticLoop(brain, comps).run(user_input)
             
-            # Start the loop
-            loop = AgenticLoop(brain, comps)
-            loop.run(user_input)
-            
-            clear_thinking()
-            
-            # 2. Track stats (We track the initial intent)
             user_profile.track_command("agent_task")
 
         except KeyboardInterrupt:
-            user_profile.save()
-            print_goodbye(user_profile.name)
             break
         except Exception as e:
-            print_error(f"{e}")
-            import traceback
-            traceback.print_exc()
+            print_error(f"Error: {e}")
+            logger.error(e, exc_info=True)
+
+    print_goodbye(user_profile.name)
 
 if __name__ == "__main__":
     main()

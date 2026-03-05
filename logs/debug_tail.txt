@@ -1,0 +1,200 @@
+2026-02-17 18:56:28,064 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 18:56:28,855 - Sandbox - WARNING - Docker unavailable: Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')
+2026-02-17 18:56:28,859 - Scheduler - INFO - Scheduler started.
+2026-02-17 18:56:31,109 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 18:56:34,067 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 18:57:16,976 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 18:57:16,978 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 18:57:16,981 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 18:57:17,770 - Sandbox - WARNING - Docker unavailable: Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')
+2026-02-17 18:57:17,775 - Scheduler - INFO - Scheduler started.
+2026-02-17 18:57:19,768 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 22:49:28,088 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 22:49:28,091 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 22:49:28,093 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 22:49:28,774 - Sandbox - WARNING - Docker unavailable: Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')
+2026-02-17 22:49:28,777 - Scheduler - INFO - Scheduler started.
+2026-02-17 22:49:30,709 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 22:49:46,473 - TelegramBot - INFO - Telegram User 8053940112: Hey bud
+2026-02-17 22:49:47,592 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 22:49:47,595 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 22:49:47,597 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 22:49:49,729 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 22:49:50,960 - TelegramBot - ERROR - Telegram Handler Error: process_action() takes 3 positional arguments but 4 were given
+2026-02-17 22:52:10,718 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 22:53:50,493 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 22:53:50,497 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 22:53:50,503 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 22:53:52,023 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 22:53:52,028 - Scheduler - INFO - Scheduler started.
+2026-02-17 22:53:55,513 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 22:54:13,831 - TelegramBot - INFO - Telegram User 8053940112: Hey
+2026-02-17 22:54:14,982 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 22:54:14,985 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 22:54:14,986 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 22:54:15,800 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 22:54:27,278 - TelegramBot - INFO - Telegram User 8053940112: Take screenshot
+2026-02-17 22:54:31,957 - Orchestrator - INFO - Screenshot saved to C:\Users\01roh\Desktop\screenshot_20260217_225431.png
+2026-02-17 23:02:05,986 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:02:06,028 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:02:06,031 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:02:06,833 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:02:06,836 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:02:08,686 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:02:08,845 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:02:08,848 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:02:08,850 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:02:09,466 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:02:09,470 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:02:11,564 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:02:21,116 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:02:38,774 - TelegramBot - INFO - Telegram User 8053940112: Hey
+2026-02-17 23:02:39,887 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:02:39,894 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:02:39,898 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:02:40,209 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:02:50,344 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:02:55,766 - Orchestrator - INFO - Executed: Get-Help -Name 'Start-Process' -Full
+2026-02-17 23:08:27,754 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:08:27,759 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:08:27,763 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:08:29,811 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:08:29,815 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:08:33,587 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:09:12,489 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:09:13,616 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:09:13,620 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:09:13,624 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:09:15,704 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:09:17,282 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:11:33,870 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:11:33,873 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:11:33,876 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:11:36,195 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:11:36,202 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:11:39,602 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:11:53,946 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:11:54,970 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:11:54,970 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:11:54,972 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:11:58,635 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:12:00,026 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:12:55,374 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:12:55,376 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:12:55,380 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:12:56,380 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:12:56,383 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:12:59,302 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:14:02,911 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:14:03,981 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:14:03,982 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:14:03,983 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:14:05,820 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:14:07,096 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:16:19,294 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:16:19,296 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:16:19,297 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:16:19,911 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:16:19,913 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:16:22,121 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:16:57,566 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:16:58,561 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:16:58,562 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:16:58,564 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:17:00,496 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:17:01,601 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:20:18,151 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:20:18,153 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:20:18,154 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:20:18,688 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:20:18,691 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:20:20,796 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:21:25,993 - TelegramBot - INFO - Telegram User 8053940112: Share screen
+2026-02-17 23:21:27,095 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:21:27,096 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:21:27,096 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:21:29,676 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:21:31,173 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:31:34,369 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:31:34,372 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:31:34,375 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:31:35,159 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:31:35,163 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:31:36,872 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:31:47,927 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:31:49,007 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:31:49,009 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:31:49,014 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:31:50,976 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:31:52,531 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:32:58,951 - ProfileManager - INFO - Creating new profile for user: terminal_user
+2026-02-17 23:32:58,952 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:32:58,953 - SkillManager - INFO - Loaded 0 skills for user terminal_user
+2026-02-17 23:32:59,247 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:32:59,249 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:33:00,320 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:33:09,081 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:33:10,249 - ProfileManager - INFO - Creating new profile for user: 8053940112
+2026-02-17 23:33:10,251 - Brain - INFO - Brain Initialized | Provider: GEMINI | Model: gemini-1.5-pro
+2026-02-17 23:33:10,252 - SkillManager - INFO - Loaded 0 skills for user 8053940112
+2026-02-17 23:33:12,359 - Brain - WARNING - Gemini Model gemini-1.5-pro not found/supported. Falling back to gemini-2.0-flash.
+2026-02-17 23:33:13,858 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:36:42,119 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:36:42,121 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:36:43,725 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:36:45,992 - TelegramBot - INFO - Telegram User 8053940112: Hey
+2026-02-17 23:36:55,190 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:36:58,897 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:37:39,524 - TelegramBot - INFO - Telegram User 8053940112: Chat with ashi
+2026-02-17 23:37:43,363 - Orchestrator - INFO - WhatsApp module is disabled.
+2026-02-17 23:40:09,287 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:40:09,290 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:40:10,739 - TelegramBot - INFO - 🤖 Telegram Bot starting poll...
+2026-02-17 23:40:23,662 - TelegramBot - INFO - Telegram User 8053940112: Broadcast my screen
+2026-02-17 23:40:28,315 - Orchestrator - INFO - Screencast Skill is disabled.
+2026-02-17 23:40:35,283 - TelegramBot - INFO - Telegram User 8053940112: Chat with ashi
+2026-02-17 23:40:38,796 - Orchestrator - INFO - WhatsApp module is disabled.
+2026-02-17 23:42:58,760 - Sandbox - INFO - 🐳 Docker Engine detected and active.
+2026-02-17 23:42:58,763 - Scheduler - INFO - Scheduler started.
+2026-02-17 23:43:19,267 - Orchestrator - INFO - 📱 Broadcast LIVE: 🚀 Broadcast started! Open http://10.68.248.139:8000 on your phone.
+2026-02-17 23:45:49,288 - WhatsAppClient - INFO - Starting WhatsApp Monitor for: None (Mission: None)
+2026-02-17 23:45:49,289 - WhatsAppClient - INFO - WhatsApp Monitor thread started for None
+2026-02-17 23:45:49,290 - WhatsAppClient - INFO - Brain Provider: GEMINI | Model: gemini-2.0-flash
+2026-02-17 23:46:16,557 - WhatsAppClient - INFO - Waiting for WhatsApp to load...
+2026-02-17 23:46:50,842 - WhatsAppClient - INFO - Logged in successfully.
+2026-02-17 23:46:51,694 - WhatsAppClient - ERROR - WhatsApp Fatal Error: Frame.fill() missing 1 required positional argument: 'value'
+2026-02-17 23:48:11,078 - WhatsAppClient - ERROR - WhatsApp Fatal Error: Frame.fill() missing 1 required positional argument: 'value'
+2026-02-18 00:02:59,599 - WhatsAppClient - ERROR - Monitor Loop Error: Locator.all: Target page, context or browser has been closed
+2026-02-18 00:02:59,602 - WhatsAppClient - ERROR - Wait - browser seems closed! Exiting Monitor.
+2026-02-18 00:11:38,899 - WhatsAppClient - WARNING - monitor_chat called with no contact name.
+2026-02-18 00:16:06,032 - Brain - WARNING - JSON Parsing Failed (Extra data: line 2 column 1 (char 400)). Retrying with strict enforcement...
+2026-02-18 00:16:06,035 - Brain - ERROR - Retry failed: 'GenerativeModel' object has no attribute 'chat'
+2026-02-18 00:19:57,748 - Screencast - ERROR - Input Error: unsupported operand type(s) for *: 'NoneType' and 'int'
+2026-02-18 00:19:57,781 - Screencast - ERROR - Input Error: unsupported operand type(s) for *: 'NoneType' and 'int'
+2026-02-18 00:50:10,642 - WhatsAppClient - ERROR - Error extracting text: Locator.inner_text: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("div[role=\"row\"]").nth(100)
+
+2026-02-18 00:52:41,694 - WhatsAppClient - ERROR - Monitor Loop Error: Locator.all: Target page, context or browser has been closed
+2026-02-18 00:52:41,695 - WhatsAppClient - ERROR - Wait - browser seems closed! Exiting Monitor.
+2026-02-18 20:21:28,622 - Main - ERROR - Telegram Bot failed: TessBot.__init__() got an unexpected keyword argument 'whatsapp'
+2026-02-18 23:30:12,950 - Orchestrator - WARNING - Unknown action dispatch attempt: {'action': 'error', 'reason': 'Extra data: line 2 column 1 (char 93)'}
+2026-02-18 23:34:01,279 - Brain - ERROR - Request Completion Failed: 429 Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+2026-02-18 23:34:01,281 - WhatsAppClient - WARNING - Brain did not return a reply.
+2026-02-18 23:34:47,786 - Brain - ERROR - Request Completion Failed: 429 Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+2026-02-18 23:34:47,789 - WhatsAppClient - WARNING - Brain did not return a reply.
+2026-02-18 23:37:27,642 - Brain - ERROR - Request Completion Failed: 429 Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+2026-02-18 23:37:27,645 - WhatsAppClient - WARNING - Brain did not return a reply.
+2026-02-19 00:00:16,264 - Orchestrator - WARNING - Unknown action dispatch attempt: {'thought': "Now that I've written the script, I should execute it to show Rohit that it works correctly. This helps confirm that the output is as expected.", 'action': 'code_op', 'sub_action': 'execute', 'filename': 'fibonacci.py'}
+2026-02-19 00:19:53,339 - Orchestrator - WARNING - Unknown action dispatch attempt: {'thought': 'I can help Rohit by starting a screen broadcast. First, I need to verify that the broadcast tool is available on the system before attempting to start the broadcast.', 'action': 'broadcast_op', 'sub_action': 'start'}
+2026-02-19 00:20:15,890 - Orchestrator - WARNING - Unknown action dispatch attempt: {'thought': "Alright, let's get your screen broadcast started. This might take a minute.", 'action': 'broadcast_op', 'sub_action': 'start'}
+2026-02-19 00:23:13,036 - Orchestrator - ERROR - Handler _handle_broadcast_op crashed: 'ScreencastSkill' object has no attribute 'start_server'
+Traceback (most recent call last):
+  File "C:\Users\01roh\OneDrive\Desktop\Side_Projectss\IDE\TESS_Desktop\TESS_Terminal_Pro\tess_cli\core\orchestrator.py", line 48, in dispatch
+    return handler(action_data)
+  File "C:\Users\01roh\OneDrive\Desktop\Side_Projectss\IDE\TESS_Desktop\TESS_Terminal_Pro\tess_cli\core\orchestrator.py", line 263, in _handle_broadcast_op
+    return out(sc.start_server(), self.output_handler)
+AttributeError: 'ScreencastSkill' object has no attribute 'start_server'
+2026-02-19 00:32:58,604 - Brain - WARNING - API Attempt 1 Failed: 429 resource exhausted. please try again later. please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+2026-02-19 00:33:00,840 - Brain - WARNING - API Attempt 2 Failed: 429 resource exhausted. please try again later. please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+2026-02-19 11:26:27,516 - Main - ERROR - Telegram Bot failed: httpx.ConnectError: 

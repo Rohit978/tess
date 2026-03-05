@@ -3,356 +3,246 @@ import re
 import os
 import time
 import warnings
-# Suppress the specific FutureWarning from google-generativeai
+import logging
+import random
+
+# Suppress warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 import google.generativeai as genai
 from groq import Groq
 from openai import OpenAI
-from pydantic import TypeAdapter, ValidationError
+
 from .config import Config
 from .logger import setup_logger
 from .memory_engine import MemoryEngine
-from .schemas import TessAction
 
 logger = setup_logger("Brain")
 
+class LLMClientFactory:
+    """Factory to create LLM clients."""
+    @staticmethod
+    def get_client(provider, model, api_key):
+        if not api_key: return None, f"Missing API Key for {provider}"
+        try:
+            if provider == "groq": return Groq(api_key=api_key), None
+            elif provider == "openai": return OpenAI(api_key=api_key), None
+            elif provider == "deepseek": return OpenAI(api_key=api_key, base_url="https://api.deepseek.com"), None
+            elif provider == "gemini":
+                genai.configure(api_key=api_key)
+                return genai.GenerativeModel(model), None
+        except Exception as e:
+            return None, str(e)
+        return None, "Unknown Provider"
+
 class Brain:
     """
-    Handles LLM interactions using Config-driven Provider Switching & Key Rotation.
-    Supports: Groq, OpenAI, DeepSeek, Gemini.
+    Handles LLM interactions with robust retries and failover.
     """
-    
     def __init__(self, user_id="default", knowledge_db=None, personality="casual"):
         self.user_id = str(user_id)
         self.personality = personality
         self.history = [{"role": "system", "content": Config.get_system_prompt(personality)}]
         
-        # Initialize Memory components
         self.memory = MemoryEngine(user_id=self.user_id)
         self.knowledge_db = knowledge_db 
-        self.skill_manager = None # Injected later
-        
-        # Current State
         self.provider = Config.LLM_PROVIDER
         self.model = Config.LLM_MODEL
         self.current_key_index = 0
-        if Config.LLM_PROVIDER != "gemini": # Show info only if not default to reduce noise
-             logger.info(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
-        else:
-             logger.debug(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
-
-    def _get_client(self, provider):
-        """
-        Get a client instance using the current key index for rotation.
-        """
-        key = Config.get_api_key(provider, index=self.current_key_index)
-        if not key:
-            return None, f"Missing API Key for {provider}"
-
-        try:
-            if provider == "groq":
-                return Groq(api_key=key), None
-            elif provider == "openai":
-                return OpenAI(api_key=key), None
-            elif provider == "deepseek":
-                return OpenAI(api_key=key, base_url="https://api.deepseek.com"), None
-            elif provider == "gemini":
-                genai.configure(api_key=key)
-                return genai.GenerativeModel(self.model), None
-        except Exception as e:
-            return None, str(e)
-        return None, "Unknown Provider"
+        
+        logger.info(f"Brain Initialized | Provider: {self.provider.upper()} | Model: {self.model}")
 
     def update_history(self, role, content):
-        """Append a message to the conversation history."""
         self.history.append({"role": role, "content": content})
 
-    def generate_command(self, user_query):
+    def _get_client(self):
+        key = Config.get_api_key(self.provider, index=self.current_key_index)
+        return LLMClientFactory.get_client(self.provider, self.model, key)
 
-        """
-        Generates a JSON command from user input.
-        """
-        # 1. Enrich Context (RAG, Skills, etc.)
-        self._enrich_context(user_query)
-        
-        # 2. Update History
-        self.history.append({"role": "user", "content": user_query})
-        
-        # 3. Context Distillation (Infinite Memory)
-        self._maybe_distill_context()
+    def _call_api_with_retry(self, messages, json_mode=False, temperature=0.7, max_retries=5):
+        """Centralized API caller with exponential backoff."""
+        for attempt in range(max_retries):
+            client, err = self._get_client()
+            if not client:
+                logger.error(f"Client Init Error: {err}")
+                return None
 
-        # 4. Request Completion
-        return self._execute_llm_request()
-
-    def _maybe_distill_context(self):
-        """
-        If history is too long, distill it into key facts and progress
-        to prevent 'forgetting'.
-        """
-        if len(self.history) < 100:
-             return
-
-        logger.info("🧠 History too long. Distilling context...")
-        
-        # 1. Prepare Distillation Prompt
-        summary_prompt = (
-            "Summarize the conversation so far in a few bullet points. "
-            "Focus on: 1. Discovered facts about the user. 2. Current project status. 3. Decisions made. "
-            "KEEP IT CONCISE AND IN THIRD PERSON."
-        )
-        
-        # We use a separate request so we don't mess with the history while distilling
-        messages = self.history + [{"role": "user", "content": summary_prompt}]
-        distilled = self.request_completion(messages, temperature=0.3)
-        
-        if distilled:
-            # 2. Update Memory with the distillation
-            if self.memory:
-                self.memory.store_memory(f"Distilled Context: {distilled}")
-            
-            # 3. Trim History: Keep system prompt, distilled fact, and last 4 exchanges
-            distilled_msg = {"role": "system", "content": f"[DISTILLED CONTEXT FROM PREVIOUS CHATS]\n{distilled}"}
-            self.history = [self.history[0], distilled_msg] + self.history[-8:]
-            logger.info("✅ Context distilled and history trimmed.")
-
-    def _enrich_context(self, query):
-        """Injects RAG, Skill, and User Profile context into the conversation."""
-        extras = []
-        
-        # 0. GUARD: Skip RAG for simple greetings to prevent hallucination
-        simple_queries = ["hey", "hello", "hi", "hey buddy", "yo", "tess", "are you there"]
-        is_simple = query.lower().strip().strip("?!.") in simple_queries or len(query.strip()) < 3
-        
-        # User Profile Facts (Always helpful)
-        try:
-            from .user_profile import UserProfile
-            profile = UserProfile()
-            facts_ctx = profile.get_facts_context()
-            if facts_ctx:
-                extras.append(f"\n[USER PROFILE]\n{facts_ctx}")
-        except: pass
-
-        # Memory / Knowledge DB (Only for substantive queries)
-        if self.knowledge_db and not is_simple:
             try:
-                mem = self.knowledge_db.search_memory(query, n_results=1)
-                if "No matching" not in mem:
-                    extras.append(f"\n[MEMORY]\n{mem}")
-                
-                rag = self.knowledge_db.search(query, n_results=1)
-                if "Command:" in rag:
-                    extras.append(f"\n[DOCS]\n{rag}")
-            except: pass
+                # Gemini
+                if self.provider == "gemini":
+                    prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+                    # JSON mode hack for Gemini
+                    if json_mode and "json" not in prompt.lower(): 
+                        prompt += "\nOutput strict JSON."
+                    
+                    # Bypass standard safety rails for TESS personality tuning (Rogue Mode)
+                    # OR when Autonomous Coding is enabled
+                    if self.personality == "rogue" or Config.AUTONOMOUS_CODING:
+                        safety_settings = [
+                            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+                        ]
+                        response = client.generate_content(prompt, safety_settings=safety_settings)
+                    else:
+                        response = client.generate_content(prompt)
+                    return response.text
 
-        # Skills (Always show available tools)
-        if self.skill_manager:
-            svs = self.skill_manager.list_skills()
-            if svs: extras.append(f"\n[SKILLS] Available: {', '.join(svs)}")
-
-        if extras:
-             ctx = "\n".join(extras)
-             # 🛡️ SANITIZE: Remove control characters (except newline/tab) that confuse some LLMs
-             self._current_context = "".join(ch for ch in ctx if ch.isprintable() or ch in "\n\t")
-        else:
-             self._current_context = ""
-
-    def _execute_llm_request(self, retry_count=0):
-        """
-        Central execution logic with Provider Failover and Key Rotation.
-        """
-        if retry_count > 4:
-            return {"action": "error", "reason": "Max LLM Retries Exceeded. Please check your API keys."}
-
-        # Get Client for current provider
-        client, err = self._get_client(self.provider)
-        if not client:
-             # Missing key for current provider - try failover immediately
-             if self.provider == "groq":
-                 logger.warning("Groq key missing. Failing over to DeepSeek.")
-                 self.provider = "deepseek"
-                 self.model = "deepseek-coder"
-                 return self._execute_llm_request(retry_count + 1)
-             elif self.provider == "deepseek":
-                 logger.warning("DeepSeek key missing. Failing over to Gemini.")
-                 self.provider = "gemini"
-                 self.model = "gemini-2.0-flash"
-                 return self._execute_llm_request(retry_count + 1)
-             return {"action": "error", "reason": f"Provider Error: {err}"}
-
-        # Prepare Messages
-        messages = list(self.history)
-        
-        # INJECT CONTEXT AS SYSTEM MESSAGE (Better adherence)
-        if self._current_context:
-            context_msg = {
-                "role": "system", 
-                "content": f"[ADDITIONAL CONTEXT]\n{self._current_context}\n[END CONTEXT]\nUse this context to answer the user, but DO NOT output it."
-            }
-            # Insert before the last user message
-            if len(messages) > 0 and messages[-1]["role"] == "user":
-                messages.insert(-1, context_msg)
-            else:
-                messages.append(context_msg)
-
-        try:
-            response_text = ""
-            if self.provider in ["groq", "openai", "deepseek"]:
-                completion = client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                    stream=False
-                )
-                response_text = completion.choices[0].message.content
-            elif self.provider == "gemini":
-                prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-                resp = client.generate_content(prompt)
-                response_text = resp.text
-
-             # Parse - ROBUST JSON EXTRACTION
-            try:
-                # 1. Try direct clean first
-                clean = response_text.replace("```json", "").replace("```", "").strip()
-                cmd = json.loads(clean)
-            except json.JSONDecodeError:
-                # 2. Fallback: Extract first JSON object using Regex
-                match = re.search(r"(\{.*\})", response_text, re.DOTALL)
-                if match:
-                    clean = match.group(1)
-                    cmd = json.loads(clean)
-                else:
-                    raise ValueError(f"No JSON found in response: {response_text[:100]}...")
-
-            self.history.append({"role": "assistant", "content": clean})
-            return cmd
-
-        except Exception as e:
-            err_msg = str(e).lower()
-            
-            # Handle 400 (JSON Validation Failed) - RETRY WITH FORCE JSON
-            # Even with regex, if it's malformed, we retry.
-            if "400" in err_msg or "json" in err_msg or "valueerror" in err_msg:
-                 logger.warning(f"JSON Parsing Failed ({e}). Retrying with strict enforcement...")
-                 # Append a forceful system reminder/user tip to the END of messages
-                 messages.append({"role": "user", "content": "PREVIOUS RESPONSE FAILED JSON VALIDATION. YOU MUST OUTPUT RAW JSON ONLY. NO TEXT. NO MARKDOWN."})
-                 try:
-                     # Retry ONCE with the same client
-                     if self.provider == "gemini":
-                         prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-                         resp = client.generate_content(prompt)
-                         response_text = resp.text
-                     else:
-                         # OpenAI/Groq/DeepSeek
-                         retry_completion = client.chat.completions.create(
-                            model=self.model,
-                            messages=messages,
-                            response_format={"type": "json_object"},
-                            stream=False
-                         )
-                         response_text = retry_completion.choices[0].message.content
-                     
-                     clean = response_text.replace("```json", "").replace("```", "").strip()
-                     cmd = json.loads(clean)
-                     self.history.append({"role": "assistant", "content": clean})
-                     return cmd
-                 except Exception as final_e:
-                     logger.error(f"Retry failed: {final_e}")
-                     # let it fall through to main retry loop or return error
-            
-            # Handle 429 (Rate Limit) - IMMEDIATE FAILOVER
-            if "429" in err_msg or "rate_limit_exceeded" in err_msg:
-                 logger.warning(f"Rate Limit Exceeded for {self.provider}. Failing over immediately...")
-                 if self.provider == "groq":
-                     self.provider = "deepseek"
-                     self.model = "deepseek-coder"
-                 elif self.provider == "deepseek":
-                     self.provider = "gemini"
-                     self.model = "gemini-2.0-flash"
-                 if self.provider == "gemini":
-                      # Last resort or cycle?
-                      # For now, let it retry or fail if max reached.
-                      pass
-                 
-                 time.sleep(10) # Heavy Backoff for Gemini Free Tier (15 RPM)
-                 return self._execute_llm_request(retry_count + 1)
-
-            # Handle 401 (Auth) OR 404 (Model Not Found)
-            if any(x in err_msg for x in ["401", "invalid api key", "404", "not found", "does not exist"]):
-                # If it's a model error, maybe just switch model first?
-                if "model" in err_msg:
-                    if self.provider == "groq" and self.model != "llama3-8b-8192":
-                        logger.warning(f"Groq Model {self.model} not found. Falling back to llama3-8b-8192.")
-                        self.model = "llama3-8b-8192"
-                        return self._execute_llm_request(retry_count + 1)
-                    elif self.provider == "gemini" and self.model != "gemini-2.0-flash":
-                        logger.debug(f"Gemini Model {self.model} not found/supported. Falling back to gemini-2.0-flash.")
-                        self.model = "gemini-2.0-flash"
-                        return self._execute_llm_request(retry_count + 1)
-
-                # Get number of keys available for this provider
-                num_keys = len(Config._data["llm"]["keys"].get(self.provider, []))
-                
-                if self.current_key_index < num_keys - 1:
-                    # Move to the next key for the same provider
-                    self.current_key_index += 1
-                    logger.warning(f"Retrying {self.provider} with next available key (Index: {self.current_key_index})...")
-                else:
-                    # All keys for this provider failed, switch provider
-                    self.current_key_index = 0 # Reset for next provider
-                    if self.provider == "groq":
-                        logger.warning("Groq consistently failing. Failing over to DeepSeek.")
-                        self.provider = "deepseek"
-                        self.model = "deepseek-coder"
-                    elif self.provider == "deepseek":
-                        self.provider = "gemini"
-                        self.model = "gemini-2.0-flash"
-            
-            time.sleep(2) # Backoff before retry
-            return self._execute_llm_request(retry_count + 1)
-
-
-    def think(self, prompt):
-        """Simple text-to-text for subtasks."""
-        # Reuse _get_client logic or simplify
-        client, _ = self._get_client(self.provider)
-        if not client: return "LLM Error"
-        
-        try:
-            if self.provider in ["groq", "openai", "deepseek"]:
-                res = client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role":"user", "content": prompt}]
-                )
-                return res.choices[0].message.content
-            elif self.provider == "gemini":
-                return client.generate_content(prompt).text
-        except:
-            return "Thinking failed."
-
-    def request_completion(self, messages, json_mode=False, temperature=0.7):
-        """
-        Versatile completion request for non-standard flows (like WhatsApp).
-        """
-        client, _ = self._get_client(self.provider)
-        if not client: return None
-        
-        try:
-            if self.provider in ["groq", "openai", "deepseek"]:
+                # OpenAI / Groq / DeepSeek
                 args = {
                     "model": self.model,
                     "messages": messages,
                     "temperature": temperature
                 }
-                if json_mode:
-                    args["response_format"] = {"type": "json_object"}
+                if json_mode: args["response_format"] = {"type": "json_object"}
                 
                 completion = client.chat.completions.create(**args)
                 return completion.choices[0].message.content
-            elif self.provider == "gemini":
-                prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-                resp = client.generate_content(prompt)
-                return resp.text
-        except Exception as e:
-            logger.error(f"Request Completion Failed: {e}")
-            return None
 
+            except Exception as e:
+                err_msg = str(e).lower()
+                logger.warning(f"API Attempt {attempt+1} Failed: {err_msg}")
+                
+                # Rate Limits (429) or Overloaded (503)
+                if "429" in err_msg or "resource exhausted" in err_msg:
+                    sleep_time = (2 ** attempt) + random.uniform(0, 1) # 1s, 2s, 4s, 8s...
+                    logger.info(f"Rate limit hit. Sleeping {sleep_time:.2f}s...")
+                    time.sleep(sleep_time)
+                    # Rotate key for next attempt
+                    self.current_key_index += 1
+                    continue
+                
+                # JSON Errors
+                if "json" in err_msg and json_mode:
+                    messages.append({"role": "user", "content": "Previous response was invalid JSON. Retrying."})
+                    continue
+
+                # Provider Failover Logic could go here
+                
+        logger.error("Max retries exceeded.")
+        return None
+
+    def think(self, prompt):
+        """Simple thought generation."""
+        return self.request_completion([{"role": "user", "content": prompt}]) or "Thinking failed."
+
+    def request_completion(self, messages, json_mode=False, temperature=0.7):
+        """Public method for one-off completions."""
+        return self._call_api_with_retry(messages, json_mode, temperature)
+
+    def generate_command(self, user_query):
+        """Main chat loop entry point."""
+        self._enrich_context(user_query)
+        self.history.append({"role": "user", "content": user_query})
+        self._maybe_distill_context()
+        
+        # Prepare messages
+        messages = list(self.history)
+        if hasattr(self, '_current_context') and self._current_context:
+             messages.insert(-1, {"role": "system", "content": f"[CTX]\n{self._current_context}\n[/CTX]"})
+
+        response_text = self._call_api_with_retry(messages, json_mode=True)
+        
+        if not response_text:
+            return {"action": "error", "reason": "Brain unresponsive (Rate Limit?)"}
+            
+        cmd = self._parse_json(response_text)
+        self.history.append({"role": "assistant", "content": json.dumps(cmd)})
+        return cmd
+
+    def _parse_json(self, text):
+        try:
+            # 1. Strip Markdown Code Blocks
+            clean = text
+            if "```" in clean:
+                # Extract content inside the first code block
+                pattern = r"```(?:json)?\s*(.*?)\s*```"
+                match = re.search(pattern, clean, re.DOTALL)
+                if match:
+                    clean = match.group(1)
+            
+            clean = clean.strip()
+            
+            # 2. Try Standard Decode (handles trailing data via raw_decode)
+            try:
+                obj, _ = json.JSONDecoder().raw_decode(clean)
+                return obj
+            except:
+                pass
+
+            # 3. Regex Fallback (Find first valid JSON object structure)
+            match = re.search(r"(\{.*?\})", clean, re.DOTALL) 
+            if match: 
+                try:
+                    # Often the non-greedy match stops too early for nested objects
+                    # Let's try to find matching braces
+                    brace_count = 0
+                    start_idx = clean.find('{')
+                    if start_idx != -1:
+                        for i in range(start_idx, len(clean)):
+                            if clean[i] == '{': brace_count += 1
+                            elif clean[i] == '}': brace_count -= 1
+                            
+                            if brace_count == 0:
+                                return json.loads(clean[start_idx:i+1])
+                except:
+                    pass
+            
+            # 4. Last Resort: Auto-correct common LLM mistakes
+            # Sometimes they forget quotes around keys
+            # (This is risky but useful for small models)
+            
+            return {"action": "reply_op", "content": text} # Fallback to chat
+        except Exception as e:
+            logger.error(f"JSON Parse fail: {e}")
+            return {"action": "reply_op", "content": text}
+
+    def _maybe_distill_context(self):
+        if len(self.history) < 100: return
+        logger.info("Distilling history...")
+        
+        summary = self.request_completion(
+            self.history + [{"role": "user", "content": "Summarize key facts concisely."}], 
+            temperature=0.3
+        )
+        
+        if summary:
+            if self.memory: self.memory.store_memory(f"Context: {summary}")
+            self.history = [self.history[0], {"role": "system", "content": f"[SUMMARY]\n{summary}"}] + self.history[-8:]
+
+    def _enrich_context(self, query):
+        if len(query) < 4: return
+        extras = []
+        
+        # Profile
+        try:
+            from .user_profile import UserProfile
+            extras.append(UserProfile().get_facts_context())
+        except Exception as e:
+            logger.warning(f"Failed to load user profile context: {e}")
+        
+        # Memory
+        if self.knowledge_db:
+            try:
+                mem = self.knowledge_db.search_memory(query, n_results=1)
+                if "No match" not in mem: extras.append(f"[KEY_MEMORY] {mem}")
+            except Exception as e:
+                logger.warning(f"Failed to search memory context: {e}")
+        
+        # Vault Awareness
+        if Config.is_module_enabled("vault"):
+            try:
+                from .vault_manager import VaultManager
+                # Just quick instantiation to check
+                # Ideally, we should pass components to Brain, but for now we lazy load or assume path
+                # A better way is to check if 'vault' is in self.components if available, 
+                # but Brain doesn't have direct access to components dict in this version.
+                # So we instantiate a lightweight manager just to list keys.
+                vm = VaultManager()
+                keys = vm.list_secrets()
+                if keys:
+                    extras.append(f"[VAULT] Available Keys: {', '.join(keys)}")
+            except Exception as e:
+                logger.warning(f"Failed to list vault keys: {e}")
+
+        self._current_context = "\n".join(filter(None, extras))

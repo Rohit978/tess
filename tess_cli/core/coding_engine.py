@@ -22,8 +22,29 @@ class CodingEngine:
         self.workspace_root = os.path.join(os.getcwd(), workspace_dir)
         os.makedirs(self.workspace_root, exist_ok=True)
         
+    def read_file(self, filename, start_line=None, end_line=None):
+        """Read file contents, optionally a line range (1-indexed)."""
+        file_path = os.path.join(self.workspace_root, filename)
+        if not os.path.exists(file_path):
+            return f"Error: {filename} not found."
+        
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except Exception as e:
+            return f"Error reading file: {e}"
+        
+        total = len(lines)
+        if start_line or end_line:
+            s = max(1, start_line or 1) - 1
+            e = min(total, end_line or total)
+            selected = lines[s:e]
+            return f"[{filename}] Lines {s+1}-{e} of {total}\n" + "".join(selected)
+        
+        return f"[{filename}] {total} lines\n" + "".join(lines[:300])
+
     def scaffold_project(self, project_type, path):
-        """Create a new project structure."""
+        """Create a new project structure with GSD spec files."""
         if not path:
             return "Error: Project path is required for scaffolding."
         if not project_type:
@@ -31,6 +52,11 @@ class CodingEngine:
             
         target_path = os.path.join(self.workspace_root, path)
         os.makedirs(target_path, exist_ok=True)
+        
+        # Initialize GSD Workspace
+        from .gsd_workspace import GSDWorkspace
+        gsd = GSDWorkspace(target_path)
+        gsd_msg = gsd.init_workspace(project_name=os.path.basename(path))
         
         if project_type == "python":
             # Python Project Scaffold
@@ -50,7 +76,7 @@ class CodingEngine:
             with open(os.path.join(target_path, "script.js"), "w") as f: f.write("console.log('TESS Web App Loaded');")
             
         logger.info(f"Scaffolded {project_type} project at {target_path}")
-        return f"Successfully scaffolded {project_type} project at {path}"
+        return f"Successfully scaffolded {project_type} project at {path}.\n{gsd_msg}"
 
     def write_file(self, filename, content):
         """Write code to a file."""
@@ -127,16 +153,70 @@ class CodingEngine:
         JSON format: {{"fixed_code": "..."}}
         """
         
+        # Use Brain's parser to handle markdown blocks
         response = self.brain.request_completion([{"role": "system", "content": prompt}], json_mode=True)
         try:
-            data = json.loads(response)
-            fixed_code = data.get("fixed_code")
+            data = self.brain._parse_json(response)
+            
+            fixed_code = data.get("fixed_code") or data.get("code") or data.get("solution")
             if fixed_code:
                 self.write_file(filename, fixed_code)
                 return f"Applied fix to {filename}. Retesting recommended."
-        except:
-            pass
+        except Exception as e:
+            return f"Failed to parse fix: {e}"
         return "Failed to generate autonomous fix."
+
+    def review_code(self, filename):
+        """Static analysis and code review."""
+        file_path = os.path.join(self.workspace_root, filename)
+        if not os.path.exists(file_path):
+            return f"Error: {filename} not found."
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            code = f.read()
+
+        prompt = f"""
+        TESS Tech Lead: Code Review
+        FILE: {filename}
+        CODE:
+        ```python
+        {code}
+        ```
+
+        Provide a concise code review covering:
+        1.  **Bugs**: Logic errors, potential crashes.
+        2.  **Security**: Vulnerabilities, hardcoded secrets.
+        3.  **Style**: Readability, PEP8 compliance.
+        4.  **Optimization**: Performance improvements.
+
+        Format as Markdown.
+        """
+        return self.brain.request_completion([{"role": "system", "content": prompt}]) or "Review failed."
+
+    def debug_code(self, filename):
+        """Auto-Run -> Analyze -> Fix Loop."""
+        logger.info(f"Debugging {filename}...")
+        
+        # 1. Run the code
+        result = self.execute(filename)
+        
+        # 2. Check for errors
+        if "Traceback" not in result and "Error" not in result:
+             return f"Code ran successfully:\n{result}"
+             
+        # 3. Analyze and Fix
+        logger.info(f"Error detected in {filename}. Attempting fix...")
+        fix_result = self.fix_code(filename, result)
+        
+        if "Applied fix" in fix_result:
+            # 4. Retry once
+            retry_res = self.execute(filename)
+            if "Traceback" not in retry_res:
+                return f"✅ Fixed and Verified!\nOriginal Error: {result[:100]}...\nFix: {fix_result}\nOutput: {retry_res}"
+            else:
+                return f"⚠️ Fix applied but error persists.\n{retry_res}"
+        
+        return f"❌ Could not fix error automatically.\n{result}"
 
     def grep_search(self, pattern, path=".", include_exts=None):
         """Fast text search across files using gitignore-aware pathspec."""

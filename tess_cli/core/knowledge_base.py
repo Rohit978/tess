@@ -26,9 +26,16 @@ class KnowledgeBase:
         self.available = CHROMADB_AVAILABLE
         self.collection = None
         self.embedding_fn = None
+        self.fallback_engine = None
         
         if not self.available:
-            logger.warning("ChromaDB unavailable — memory features disabled. (Python 3.14 + Pydantic V1 conflict)")
+            logger.warning("ChromaDB unavailable — switching to JSON Fallback (MemoryEngine).")
+            # Fallback to simple JSON memory
+            try:
+                from .memory_engine import MemoryEngine
+                self.fallback_engine = MemoryEngine()
+            except Exception as e:
+                logger.error(f"Fallback MemoryEngine init failed: {e}")
             return
         
         try:
@@ -39,8 +46,12 @@ class KnowledgeBase:
                 embedding_function=self.embedding_fn
             )
         except Exception as e:
-            logger.error(f"ChromaDB init failed: {e}")
+            logger.error(f"ChromaDB init failed: {e}. Switching to Fallback.")
             self.available = False
+            try:
+                from .memory_engine import MemoryEngine
+                self.fallback_engine = MemoryEngine()
+            except: pass
         
     def _chunk_text(self, text, max_chars=1000, overlap=100):
         """Splits text into chunks of max_chars with overlap."""
@@ -59,7 +70,7 @@ class KnowledgeBase:
     def learn_directory(self, path="."):
         """Recursively reads and indexes text files in the directory."""
         if not self.available:
-            return "Memory disabled (ChromaDB unavailable)."
+             return "Deep learning disabled (ChromaDB missing). Only simple memory available."
             
         path = os.path.abspath(path)
         if not os.path.exists(path):
@@ -105,70 +116,71 @@ class KnowledgeBase:
 
     def search(self, query, n_results=3):
         """Semantic search for the query."""
-        if not self.available:
-            return "Memory search unavailable."
-            
-        try:
-            results = self.collection.query(
-                query_texts=[query],
-                n_results=n_results
-            )
-            
-            output = ""
-            if not results['documents']:
-                return "No matching knowledge found."
+        if self.available and self.collection:
+            try:
+                results = self.collection.query(
+                    query_texts=[query],
+                    n_results=n_results
+                )
                 
-            for i, doc in enumerate(results['documents'][0]):
-                meta = results['metadatas'][0][i]
-                source = meta.get('source', 'unknown')
-                output += f"\n--- [Source: {source}] ---\n{doc}\n"
-                
-            return output
-        except Exception as e:
-            logger.error(f"Search error: {e}")
-            return f"Error searching knowledge base: {e}"
+                output = ""
+                if not results['documents']:
+                    return "No matching knowledge found."
+                    
+                for i, doc in enumerate(results['documents'][0]):
+                    meta = results['metadatas'][0][i]
+                    source = meta.get('source', 'unknown')
+                    output += f"\n--- [Source: {source}] ---\n{doc}\n"
+                    
+                return output
+            except Exception as e:
+                logger.error(f"Search error: {e}")
+        
+        # Fallback
+        if self.fallback_engine:
+             return "\n".join(self.fallback_engine.retrieve_context(query, limit=n_results))
+             
+        return "Memory search unavailable."
 
     def get_stats(self):
         """Returns statistics about the knowledge base."""
-        if not self.available:
-            return "Memory disabled (ChromaDB unavailable on this Python version)."
-            
-        try:
-            count = self.collection.count()
-            peek = self.collection.peek(limit=5)
-            sources = set()
-            if peek and 'metadatas' in peek:
-                for meta in peek['metadatas']:
-                    if 'source' in meta:
-                        sources.add(os.path.basename(meta['source']))
-            
-            source_list = ", ".join(list(sources))
-            return f"Knowledge Base Stats:\n- Total Chunks: {count}\n- Sample Sources: {source_list}..."
-        except Exception as e:
-            return f"Error getting stats: {e}"
+        stats = []
+        if self.available:
+            try:
+                count = self.collection.count()
+                stats.append(f"Vector DB: {count} chunks")
+            except: pass
+        if self.fallback_engine:
+             stats.append(f"JSON Memory: {len(self.fallback_engine.memories)} entries")
+             
+        return "\n".join(stats) if stats else "Memory disabled."
 
     def store_memory(self, text, metadata=None):
         """Stores a conversation snippet or fact into the vector DB."""
-        if not self.available:
-            return False
+        # Try JSON first for reliable simple memory
+        if self.fallback_engine:
+            self.fallback_engine.store_memory(text, metadata)
             
-        try:
-            if not metadata:
-                metadata = {"type": "conversation", "timestamp": "unknown"}
+        # Try Vector DB for semantic search
+        if self.available:  
+            try:
+                if not metadata:
+                    metadata = {"type": "conversation", "timestamp": "unknown"}
+                    
+                import time
+                doc_id = f"mem_{int(time.time()*1000)}"
                 
-            import time
-            doc_id = f"mem_{int(time.time()*1000)}"
-            
-            self.collection.add(
-                documents=[text],
-                metadatas=[metadata],
-                ids=[doc_id]
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Failed to store memory: {e}")
-            return False
+                self.collection.add(
+                    documents=[text],
+                    metadatas=[metadata],
+                    ids=[doc_id]
+                )
+            except Exception as e:
+                logger.error(f"Failed to store vector memory: {e}")
+        return True
 
     def search_memory(self, query, n_results=3):
         """Searches for conversation/memory items."""
         return self.search(query, n_results)
+        
+

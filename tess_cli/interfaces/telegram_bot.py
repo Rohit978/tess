@@ -10,7 +10,7 @@ from ..core.orchestrator import process_action
 logger = setup_logger("TelegramBot")
 
 class TessBot:
-    def __init__(self, profile_manager, launcher, browser_ctrl, sys_ctrl, file_mgr, knowledge_db, planner, web_browser, task_registry, whatsapp_client, youtube_client, executor, screencast=None):
+    def __init__(self, profile_manager, launcher, sys_ctrl, file_mgr, knowledge_db, planner, web_browser, task_registry, whatsapp, youtube_client, executor, screencast=None):
         self.token = Config.TELEGRAM_BOT_TOKEN
         if not self.token:
             raise ValueError("TELEGRAM_BOT_TOKEN not found.")
@@ -21,14 +21,13 @@ class TessBot:
         # Bundle components for orchestrator
         self.components = {
             'launcher': launcher,
-            'browser_ctrl': browser_ctrl,
             'sys_ctrl': sys_ctrl,
             'file_mgr': file_mgr,
             'knowledge_db': knowledge_db,
             'planner': planner,
             'web_browser': web_browser,
             'task_registry': task_registry,
-            'whatsapp': whatsapp_client, # Renamed from 'whatsapp_client' to match orchestrator
+            'whatsapp': whatsapp,
             'youtube_client': youtube_client,
             'executor': executor,
             'screencast': screencast

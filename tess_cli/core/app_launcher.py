@@ -82,19 +82,27 @@ class AppLauncher:
         """
         Fuzzy search for an app by name.
         """
-        if not self.apps:
+        if not app_name or not self.apps:
             return None
+            
+        app_name_lower = str(app_name).lower()
             
         # 1. Exact case-insensitive match
         for app in self.apps:
-            if app['Name'].lower() == app_name.lower():
+            name = app.get('Name')
+            if name and name.lower() == app_name_lower:
                 return app
                 
         # 2. Contains match
-        matches = [app for app in self.apps if app_name.lower() in app['Name'].lower()]
+        matches = []
+        for app in self.apps:
+            name = app.get('Name')
+            if name and app_name_lower in name.lower():
+                matches.append(app)
+                
         if matches:
             # Return shortest match (likely the most exact one)
-            matches.sort(key=lambda x: len(x['Name']))
+            matches.sort(key=lambda x: len(x.get('Name', '')))
             return matches[0]
             
         # 3. Difflib close match (optional, can be skipped for speed)
@@ -109,9 +117,9 @@ class AppLauncher:
             return f"Start-Process shell:AppsFolder\\{app['AppID']}"
             
         # Fallback: Try running as a direct command (for things like 'notepad', 'calc', 'msedge')
-        # Check if it looks like a command (no spaces, or common names)
+        # Only allow explicitly known common executables to prevent PowerShell hangs
         common_exes = ["notepad", "calc", "msedge", "chrome", "firefox", "explorer", "cmd", "powershell", "code"]
-        if app_name.lower() in common_exes or " " not in app_name:
+        if app_name.lower() in common_exes:
              return f"Start-Process {app_name}"
              
         return None

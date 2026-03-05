@@ -170,10 +170,6 @@ def get_prompt():
 def print_thinking(msg="Thinking..."):
     global _thinking_spinner
     
-    # 🛡️ SAFETY CHECK: Only proceed if msg is "Thinking..." in minimal mode
-    if Config.get_ui_mode() == "minimal" and msg != "Thinking...":
-        return
-        
     clear_thinking() # Ensure any previous spinner is cleanly stopped
     
     _thinking_spinner = Progress(

@@ -18,6 +18,8 @@ class WebBrowser:
 
     def scrape_page(self, url):
         """Synchronous scraping for CLI"""
+        if not url:
+            return "Error: No URL provided."
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
@@ -44,6 +46,8 @@ class WebBrowser:
 
     async def scrape_async(self, url):
         """Async scraping for Telegram"""
+        if not url:
+            return "Error: No URL provided."
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
@@ -67,6 +71,8 @@ class WebBrowser:
 
     def screenshot_sync(self, url):
         """Sync Screenshot"""
+        if not url:
+            return "Error: No URL provided."
         try:
             filename = f"screenshot_{os.urandom(4).hex()}.png"
             path = os.path.join(self.screenshot_dir, filename)
@@ -84,6 +90,8 @@ class WebBrowser:
 
     async def screenshot_async(self, url):
         """Async Screenshot"""
+        if not url:
+            return "Error: No URL provided."
         try:
             filename = f"screenshot_{os.urandom(4).hex()}.png"
             path = os.path.join(self.screenshot_dir, filename)
@@ -105,6 +113,10 @@ class WebBrowser:
         Performs a Web Search using DuckDuckGo API (via duckduckgo-search).
         Much faster and more reliable than headless browsing.
         """
+        if not query:
+            return "Error: No search query provided."
+            
+        ddg_error = None
         try:
             import warnings
             with warnings.catch_warnings():
@@ -124,6 +136,7 @@ class WebBrowser:
                     results.append(f"🔹 **{title}**\n{snippet}\n[Link]({link})")
             
         except Exception as e:
+            ddg_error = str(e)
             logger.warning(f"DuckDuckGo API failed: {e}. Falling back to Browser Search...")
             results = []
         
@@ -139,7 +152,7 @@ class WebBrowser:
                     return "Search failed both via API and Browser Fallback."
             except Exception as fe:
                 logger.error(f"Search Fallback Error: {fe}")
-                return f"Search failed: {e}"
+                return f"Search failed: {ddg_error} | Fallback Error: {fe}"
 
         return "\n\n".join(results)
 

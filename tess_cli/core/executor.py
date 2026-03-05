@@ -2,54 +2,37 @@ import subprocess
 import os
 
 class Executor:
-    """
-    Executes shell commands with safety checks.
-    """
-    
+    """Shell command execution with safety rails."""
     def __init__(self, safe_mode=True):
         self.safe_mode = safe_mode
 
     def execute_command(self, command):
-        """
-        Executes a shell command after user confirmation.
-        """
-        if not command:
-            return "ERROR: No command to execute."
+        if not command: return "ERROR: Empty command."
             
-        print(f"\n[TESS] Proposed Command: {command}")
+        print(f"\n[TESS] > {command}")
         
         if self.safe_mode:
-            confirmation = input("Execute this command? (Y/n): ").strip().lower()
-            if confirmation not in ['y', 'yes', 'ok', '']:
-                return "Command execution cancelled by user."
+            if input("Run? (Y/n): ").strip().lower() not in ['y', 'yes', 'ok', '']:
+                return "Cancelled."
         
         try:
-            # Execute the command
-            # Execute the command using PowerShell explicitly
-            # Use list format to handle nested quotes correctly
-            if "powershell" in command.lower() or command.lower().startswith("pwsh"):
-                # User already specified powershell, run as is
-                full_command = command
-                shell_mode = True
-            else:
-                # Wrap in powershell -Command
-                # Using a list avoids shell=True quoting hell for the outer command
-                full_command = ["powershell", "-NoProfile", "-Command", command]
-                shell_mode = False
+            # force powershell for consistency
+            # To prevent hangs (like Start-Process asking for input), force -NonInteractive
+            is_ps = "powershell" in command.lower() or command.lower().startswith("pwsh")
+            full_cmd = command if is_ps else ["powershell", "-NoProfile", "-NonInteractive", "-Command", command]
             
-            result = subprocess.run(
-                full_command, 
-                shell=shell_mode, 
+            res = subprocess.run(
+                full_cmd, 
+                shell=is_ps, 
                 capture_output=True, 
                 text=True, 
-                cwd=os.getcwd()
+                cwd=os.getcwd(),
+                timeout=60
             )
             
-            output = result.stdout
-            if result.stderr:
-                output += f"\n[STDERR]: {result.stderr}"
-                
-            return output
+            return res.stdout + (f"\n[STDERR]: {res.stderr}" if res.stderr else "")
             
+        except subprocess.TimeoutExpired:
+            return "Exec Failed: Command timed out after 60 seconds."
         except Exception as e:
-            return f"ERROR: Execution failed. {str(e)}"
+            return f"Exec Failed: {e}"

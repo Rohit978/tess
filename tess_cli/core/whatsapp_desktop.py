@@ -57,7 +57,7 @@ class WhatsAppDesktop:
         # Ctrl + F is standard for Search in WhatsApp Desktop
         logger.info("Searching for contact...")
         pyautogui.hotkey('ctrl', 'f')
-        time.sleep(0.5)
+        time.sleep(1.0) # Increased from 0.5s for slower devices
         
         # Clear previous search if any (Ctrl+A -> Backspace)
         pyautogui.hotkey('ctrl', 'a')
@@ -66,12 +66,12 @@ class WhatsAppDesktop:
         
         # Type Name
         pyautogui.write(contact_name, interval=0.05)
-        time.sleep(1.0) # Wait for search results
+        time.sleep(3.0) # Increased to 3.0s to wait for search results on slow devices
         
         # Select first result (Down -> Enter or just Enter if it auto-selects top)
         # Usually Enter selects the top result
         pyautogui.press('enter')
-        time.sleep(1.0) # Wait for chat to load
+        time.sleep(3.0) # Increased to 3.0s to wait for chat to load
         
         # 2. Initiate Call
         # Shortcuts:

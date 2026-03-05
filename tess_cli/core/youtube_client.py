@@ -33,38 +33,68 @@ class YouTubeClient:
 
     def start_session(self):
         """Starts the browser session if not already running."""
-        if self.is_page_active():
-            return
-
-        print(f"  {C.DIM}🌐 Starting YouTube Session (Headless={self.headless})...{C.R}")
-        self.playwright = sync_playwright().start()
-        
-        # Launch persistent context
         try:
-            self.context = self.playwright.chromium.launch_persistent_context(
-                user_data_dir=self.user_data_dir,
-                headless=self.headless,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-web-security",
-                    "--disable-features=IsolateOrigins,site-per-process"
-                ]
-            )
+            if self.is_page_active():
+                return
+
+            logger.info(f"Starting YouTube Session (Headless={self.headless})...")
+            print(f"  {C.DIM}🌐 Starting YouTube Session (Headless={self.headless})...{C.R}")
+            
+            if not self.playwright:
+                 self.playwright = sync_playwright().start()
+            
+            # Launch persistent context
+            try:
+                self.context = self.playwright.chromium.launch_persistent_context(
+                    user_data_dir=self.user_data_dir,
+                    headless=self.headless,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-web-security",
+                        "--disable-features=IsolateOrigins,site-per-process"
+                    ]
+                )
+            except Exception as e:
+                logger.error(f"Persistent browser launch failed: {e}. Retrying with temporary profile...")
+                print(f"  {C.YELLOW}⚠️ Persistent profile locked/failed. Retrying with temporary profile...{C.R}")
+                # Fallback to temporary context (no user data)
+                try:
+                    browser = self.playwright.chromium.launch(
+                        headless=self.headless,
+                        args=["--disable-blink-features=AutomationControlled"]
+                    )
+                    self.context = browser.new_context()
+                    self.browser = browser # Keep reference
+                except Exception as fallback_err:
+                    logger.critical(f"Fallback launch failed: {fallback_err}")
+                    raise fallback_err
+            
+            self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+            logger.info("Navigating to YouTube...")
+            print(f"  {C.DIM}🌐 Navigating to YouTube...{C.R}")
+            
+            try:
+                self.page.goto("https://www.youtube.com", timeout=60000)
+            except Exception as nav_err:
+                logger.warning(f"Navigation timeout/error: {nav_err}")
+                # We continue anyway, might be just slow load
+            
+            # Handle Cookie Consent
+            self._handle_consent()
+
+            self.is_running = True
+            logger.info("YouTube Session Started Successfully.")
+
         except Exception as e:
-            print(f"  {C.RED}❌ Failed to launch browser: {e}{C.R}")
+            logger.error(f"Critical YouTube Start Error: {e}", exc_info=True)
+            self.is_running = False
             raise e
-        
-        self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
-        print(f"  {C.DIM}🌐 Navigating to YouTube...{C.R}")
-        print(f"  {C.CYAN}💡 TIP: Look for the Chromium icon in your taskbar if you don't see the window!{C.R}")
-        self.page.goto("https://www.youtube.com", timeout=60000)
-        
-        # Handle Cookie Consent if it appears
+
+    def _handle_consent(self):
         try:
             # Check for "Before you continue to YouTube" or "I agree" buttons
-            # Common selectors for consent buttons
             consent_selectors = [
                 'button[aria-label="Accept all"]',
                 'button[aria-label="Accept the use of cookies and other data for the purposes described"]',
@@ -74,18 +104,15 @@ class YouTubeClient:
             ]
             
             for selector in consent_selectors:
-                btn = self.page.locator(selector)
-                if btn.count() > 0:
-                    logger.info(f"Found consent button: {selector}")
-                    btn.click()
-                    time.sleep(1)
-                    break
+                if self.page.locator(selector).count() > 0:
+                    try:
+                        self.page.click(selector, timeout=2000)
+                        logger.info(f"Clicked consent: {selector}")
+                        time.sleep(1)
+                        break
+                    except: pass
         except Exception as ce:
             logger.debug(f"Consent check skipped/failed: {ce}")
-
-        self.is_running = True
-
-        logger.info("YouTube Session Started.")
 
     def play_video(self, query):
         """Searches for a video and plays the first result."""
@@ -103,14 +130,17 @@ class YouTubeClient:
             
             print(f"  {C.DIM}🔎 YouTube Search: {query}{C.R}")
             
-            # Search Input - Try robust selectors
-            search_input = self.page.locator('input[name="search_query"]').first
+            # Search Input - Try robust locators
+            # 1. Try placeholder text (most reliable for i18n/DOM changes)
+            search_input = self.page.get_by_placeholder("Search").first
+            
             if not search_input.is_visible():
+                # 2. Try generic ID fallback
                 search_input = self.page.locator('input#search').first
             
             if not search_input.is_visible():
-                # Try clicking the search icon first (mobile view or collapsed)
-                search_icon = self.page.locator('button[aria-label="Search"]').first
+                # 3. Try clicking the search icon first (mobile view or collapsed)
+                search_icon = self.page.get_by_role("button", name="Search").first
                 if search_icon.is_visible():
                     search_icon.click()
                     time.sleep(0.5)
@@ -126,14 +156,16 @@ class YouTubeClient:
             # Wait for results to load
             print(f"  {C.DIM}⏳ Waiting for search results...{C.R}")
             try:
-                self.page.wait_for_selector('ytd-video-renderer, #video-title', timeout=15000)
+                # Wait for any video title to appear
+                self.page.wait_for_selector('a#video-title', timeout=15000)
             except Exception as e:
                 print(f"  {C.RED}❌ Search results didn't load in time.{C.R}")
                 return f"No results found for '{query}'"
 
             # Click first video result
-            # We want the first REAL video, not a shelf or ad
-            video_titles = self.page.locator("ytd-video-renderer #video-title")
+            # We want the first REAL video, not a shelf, ad, or channel
+            # We enforce `a#video-title` to skip shelves
+            video_titles = self.page.locator("a#video-title")
             
             # Wait for at least one
             video_titles.first.wait_for(state="visible", timeout=10000)
@@ -141,8 +173,17 @@ class YouTubeClient:
             if video_titles.count() > 0:
                 first_video = video_titles.first
                 title_text = first_video.inner_text().strip()
+                if not title_text:
+                    title_text = first_video.get_attribute('title') or "Video"
+                    
                 print(f"  {C.GREEN}▶️ Found video: {title_text}{C.R}")
-                first_video.click()
+                
+                # Try clicking the element directly, fallback to forcing via JS
+                try:
+                    first_video.click(timeout=3000)
+                except:
+                    first_video.evaluate("node => node.click()")
+                    
                 return f"Playing: {title_text}"
 
             else:

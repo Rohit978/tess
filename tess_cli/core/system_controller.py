@@ -1,150 +1,81 @@
 import pyautogui
+import platform
+import os
+import subprocess
+from datetime import datetime
 from .logger import setup_logger
 
 logger = setup_logger("SystemController")
 
 class SystemController:
     """
-    Controls system functions like Volume and Media using PyAutoGUI.
+    Controls system functions (Volume, Media, Power) using PyAutoGUI.
     """
-    
-    def press_key(self, key):
-        """Simulate a single key press."""
+    def _safe_run(self, func, *args, **kwargs):
+        """Helper to safely run actions with standard error handling."""
         try:
-            pyautogui.press(key)
-            return f"Pressed key: {key}"
+            return func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"Press key error: {e}")
+            logger.error(f"System Error: {e}")
             return f"Error: {e}"
+
+    def press_key(self, key):
+        return self._safe_run(lambda: (pyautogui.press(key), f"Pressed: {key}")[1])
 
     def type_text(self, text):
-        """Simulate typing text."""
-        try:
-            pyautogui.write(text, interval=0.01)
-            return f"Typed text: {text}"
-        except Exception as e:
-            logger.error(f"Type text error: {e}")
-            return f"Error: {e}"
+        return self._safe_run(lambda: (pyautogui.write(text, interval=0.01), f"Typed: {text}")[1])
 
     def set_volume(self, action):
-        """
-        Adjusts volume.
-        action: 'up', 'down', 'mute'
-        """
-        try:
-            if action == 'up':
-                pyautogui.press('volumeup')
-                return "Volume Increased"
-            elif action == 'down':
-                pyautogui.press('volumedown')
-                return "Volume Decreased"
-            elif action == 'mute':
-                pyautogui.press('volumemute')
-                return "Volume Muted/Unmuted"
-            return "Unknown volume action"
-        except Exception as e:
-            logger.error(f"Volume error: {e}")
-            return f"Error: {e}"
+        keys = {'up': 'volumeup', 'down': 'volumedown', 'mute': 'volumemute'}
+        key = keys.get(action)
+        if key:
+            return self.press_key(key)
+        return "Unknown volume action"
 
     def media_control(self, action):
-        """
-        Controls media playback.
-        action: 'playpause', 'next', 'prev', 'stop'
-        """
-        try:
-            if action == 'playpause':
-                pyautogui.press('playpause')
-                return "Media Play/Pause"
-            elif action == 'next':
-                pyautogui.press('nexttrack')
-                return "Next Track"
-            elif action == 'prev':
-                pyautogui.press('prevtrack')
-                return "Previous Track"
-            elif action == 'stop':
-                pyautogui.press('stop')
-                return "Media Stop"
-            return "Unknown media action"
-        except Exception as e:
-            logger.error(f"Media error: {e}")
-            return f"Error: {e}"
+        keys = {
+            'playpause': 'playpause', 'next': 'nexttrack', 
+            'prev': 'prevtrack', 'stop': 'stop'
+        }
+        key = keys.get(action)
+        if key:
+            return self.press_key(key)
+        return "Unknown media action"
 
     def take_screenshot(self, filename=None):
-        """
-        Takes a screenshot.
-        """
-        import os
-        from datetime import datetime
         try:
             if not filename:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"screenshot_{timestamp}.png"
-                
-            # Save to desktop or temp
+                filename = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            
             save_path = os.path.join(os.path.expanduser("~"), "Desktop", filename)
             pyautogui.screenshot(save_path)
-            return f"Screenshot saved to {save_path}"
+            return f"📸 Saved to {save_path}"
         except Exception as e:
-            logger.error(f"Screenshot error: {e}")
+            logger.error(f"Screenshot failed: {e}")
             return f"Error: {e}"
 
     def list_processes(self):
-        """
-        Lists running processes (Top 20 by memory or just generic list).
-        Uses 'tasklist' command for Windows compatibility without extra deps (like psutil).
-        """
-        import subprocess
+        """Quick process dump via tasklist."""
         try:
-            # Get list of running processes
-            result = subprocess.run(["tasklist", "/FO", "CSV", "/NH"], capture_output=True, text=True)
-            output = result.stdout.strip()
-            
-            # Parse CSV
-            processes = []
-            for line in output.split('\n'):
-                if not line: continue
-                parts = line.split('","')
-                if len(parts) >= 1:
-                    name = parts[0].strip('"')
-                    pid = parts[1].strip('"') if len(parts) > 1 else "?"
-                    mem = parts[4].strip('"') if len(parts) > 4 else "?"
-                    processes.append(f"{name} (PID: {pid}, Mem: {mem})")
-            
-            # Return summary (unique names to avoid spamming chrome.exe x100)
-            unique_procs = sorted(list(set([p.split()[0] for p in processes])))
-            
-            count = len(unique_procs)
-            top_list = ", ".join(unique_procs[:30]) # Limit to 30 for brevity
-            
-            return f"Running Processes ({count} unique apps): {top_list}..."
+            res = subprocess.run(["tasklist", "/FO", "CSV", "/NH"], capture_output=True, text=True)
+            procs = sorted(list(set(
+                [line.split('","')[0].strip('"') for line in res.stdout.split('\n') if line]
+            )))
+            return f"Running ({len(procs)}): " + ", ".join(procs[:25]) + "..."
         except Exception as e:
-            logger.error(f"List Process error: {e}")
-            return f"Error listing processes: {e}"
+            return f"Failed to list processes: {e}"
+
+    def _win_cmd(self, cmd_str):
+        if platform.system() != "Windows": return "OS Not Supported"
+        os.system(cmd_str)
+        return "Command Sent."
 
     def lock_system(self):
-        """Lock the workstation."""
-        import os
-        import platform
-        if platform.system() == "Windows":
-            os.system("rundll32.exe user32.dll,LockWorkStation")
-            return "System Locked"
-        return "Lock not supported on this OS"
+        return self._win_cmd("rundll32.exe user32.dll,LockWorkStation")
 
     def sleep_system(self):
-        """Put system to sleep."""
-        import os
-        import platform
-        if platform.system() == "Windows":
-            os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-            return "System Sleeping..."
-        return "Sleep not supported"
+        return self._win_cmd("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
 
     def shutdown_system(self, restart=False):
-        """Shutdown or restart system."""
-        import os
-        import platform
-        if platform.system() == "Windows":
-            cmd = "shutdown /r /t 0" if restart else "shutdown /s /t 0"
-            os.system(cmd)
-            return "System Restarting..." if restart else "System Shutting Down..."
-        return "Shutdown not supported"
+        flag = "/r" if restart else "/s"
+        return self._win_cmd(f"shutdown {flag} /t 0")

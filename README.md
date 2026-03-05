@@ -1,4 +1,4 @@
-# 🧠 TESS Terminal Pro (v5.0)
+# 🧠 TESS Terminal Pro (v2.0)
 > **The AI Operating System that lives in your terminal.**
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=for-the-badge)
@@ -30,10 +30,38 @@ It combines **Local Execution** (PowerShell, Python) with **Cloud Intelligence**
 - **Read:** Can read and summarize local PDFs (`read report.pdf`).
 - **Manipulate:** Merge (`merge a.pdf, b.pdf`), Split (`split pages 1-3`), and Extract Text.
 
-### 🧠 Enhanced Brain
-- **Models:** Upgraded support for **High-Reasoning Models** (e.g., Gemini 1.5 Pro, GPT-4o) for superior logic.
-- **Memory:** Context window expanded to 100 turns (remembers context better during retries).
-- **Notifications:** Native Windows 11 Toast notifications when tasks complete.
+### 🧠 Enhanced Brain & Memory (v5.1)
+- **Deep Memory Engine:** Memories now persist safely in a centralized database rather than volatile working directories.
+- **Advanced Context:** Upgraded support for **High-Reasoning Models** (e.g., Gemini 1.5/2.0 Pro, GPT-4o) with strict safety rail control for default modes. Context window expanded to 100 turns.
+- **True Key Rotation:** Built-in sequential API key rotation on rate limits guarantees continuous service.
+
+### 🛡️ Core Stability & Security (v2.0)
+- **Hardened Execution:** Command execution now features strict 60-second timeouts.
+- **Workspace Sandboxing:** The AI coding agent is strictly bounded to the active workspace.
+- **Autonomous Mode:** ⚡ TESS now operates with full autonomy in coding mode. No more "Allow? (Y/n)" prompts for every file edit or command execution.
+- **Robust Configuration:** Deep-merged JSON configuration cleanly preserves user choices across upgrades.
+
+---
+
+## 🔄 Updating from v1.x / v5.x
+
+If you are already using TESS, follow these steps to upgrade to **v2.0**:
+
+1. **Pull the latest changes:**
+   ```bash
+   git pull origin main
+   ```
+2. **Update dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   playwright install
+   ```
+3. **Reset or Migrate Config:**
+   TESS v2.0 will automatically attempt to migrate your `~/.tess/config.json`. If you face issues, you can reset it by deleting the file:
+   ```powershell
+   Remove-Item ~\.tess\config.json
+   tess init
+   ```
 
 ---
 
@@ -131,6 +159,37 @@ Delete `~/.tess/config.json` and restart TESS.
 
 **"Rate Limit Exceeded"**
 - We've added a smart backoff (10s wait). Just wait a moment, it will retry automatically.
+
+---
+
+
+---
+
+## 🔌 Plugin System (New!)
+
+Version 5.1 introduces a **Dynamic Plugin Architecture**. You can now extend TESS's capabilities without modifying the core code.
+
+### How to Add Custom Skills
+1. Go to your home directory: `C:\Users\YourName\.tess\plugins`
+2. Create a Python file (e.g., `spotify_skill.py`).
+3. Inherit from `BaseSkill` and define your intent.
+
+**Example `spotify_skill.py`:**
+```python
+from tess_cli.skills.base_skill import BaseSkill
+
+class SpotifySkill(BaseSkill):
+    name = "Spotify"
+    description = "Controls Spotify Desktop App"
+    intents = ["spotify_op"] # TESS will route 'spotify_op' actions here
+
+    def execute(self, action_data, context):
+        sub = action_data.get("sub_action")
+        if sub == "play":
+            return "Playing Spotify..." # Your logic here
+        return f"Unknown action: {sub}"
+```
+4. **Restart TESS.** It will automatically discover and load your plugin!
 
 ---
 

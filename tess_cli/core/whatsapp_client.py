@@ -44,6 +44,12 @@ class WhatsAppClient:
         )
         self.monitor_thread.start()
         logger.debug(f"WhatsApp Monitor thread started for {contact_name}")
+        
+        # Wait up to 10 seconds for Playwright loop to bootstrap to prevent GC kills
+        for _ in range(20):
+            if hasattr(self, 'page') and getattr(self, 'page', None) is not None and not self.page.is_closed():
+                break
+            time.sleep(0.5)
 
     def stop(self):
         """Stops the monitor loop."""
@@ -104,22 +110,45 @@ class WhatsAppClient:
                     permissions=["microphone", "camera"]
                 )
                 
-                page = browser.new_page()
+                self.page = browser.pages[0] if browser.pages else browser.new_page()
+                page = self.page
                 print(f"  {C.DIM}🌐 Navigating to WhatsApp Web...{C.R}")
                 page.goto("https://web.whatsapp.com", timeout=60000)
                 
                 # 1. Wait for Login (Main Page Load)
+                print(f"  {C.DIM}🌐 Waiting for WhatsApp login...{C.R}")
                 logger.debug("Waiting for WhatsApp to load...")
-                # Check for SEARCH BOX (indicator of login)
-                try:
-                    page.wait_for_selector('div[contenteditable="true"][data-tab="3"]', timeout=45000)
-                    logger.debug("Logged in successfully.")
-                except:
+                
+                login_detected = False
+                for i in range(45): # 90 seconds total
+                    if page.locator('div[contenteditable="true"], div#pane-side').count() > 0:
+                        print(f"  {C.GREEN}✅ Logged in successfully!{C.R}")
+                        login_detected = True
+                        break
+                    
+                    # Check for QR Code
+                    if page.locator('canvas, div[data-ref]').count() > 0:
+                        if i % 5 == 0: # Only print every 10s
+                            print(f"  {C.YELLOW}⚠️  Login Required: Please scan the QR code in the WhatsApp window.{C.R}")
+                    
+                    time.sleep(2)
+                
+                if not login_detected:
                     qr_path = os.path.join(self.screenshot_dir, "whatsapp_qr.png")
                     page.screenshot(path=qr_path)
-                    self.brain.update_history("system", f"WhatsApp needs login! QR at {qr_path}")
-                    # Give user time to scan
-                    time.sleep(30)
+                    print(f"  {C.RED}❌ Login timeout. Screenshot saved to {qr_path}{C.R}")
+                    self.brain.update_history("system", f"WhatsApp login timeout. QR at {qr_path}")
+                    return # Exit cleanly if not logged in
+                
+                # Cleanup: Close annoying banners (like Notifications/Offline)
+                try:
+                    banners = page.locator('span[data-icon="x"]').all()
+                    for b in banners:
+                        if b.is_visible():
+                            b.click()
+                            time.sleep(0.5)
+                except:
+                    pass
                 
                 def open_chat(name):
                     if not name:
@@ -127,17 +156,66 @@ class WhatsAppClient:
                         return
 
                     print(f"  {C.DIM}💬 Searching for contact: {name}...{C.R}")
-                    search_box = page.locator('div[contenteditable="true"][data-tab="3"]')
+                    # Robust search locator: variety of common WhatsApp selectors
+                    search_selectors = [
+                        'div[contenteditable="true"][data-tab="3"]',
+                        'div[title="Search input textbox"]',
+                        'div.selectable-text[data-lexical-editor="true"]',
+                        'label div div[contenteditable="true"]'
+                    ]
+                    
+                    search_box = None
+                    for sel in search_selectors:
+                        try:
+                            loc = page.locator(sel).first
+                            if loc.count() > 0 and loc.is_visible():
+                                search_box = loc
+                                print(f"  {C.DIM}🔍 Found search box via: {sel}{C.R}")
+                                break
+                        except:
+                            continue
+                    
+                    if not search_box:
+                        print(f"  {C.YELLOW}⚠️  Could not find specific search box. Falling back to first contenteditable.{C.R}")
+                        search_box = page.locator('div[contenteditable="true"]').first
+                        
+                    print(f"  {C.DIM}💬 Picking search box...{C.R}")
                     search_box.click()
-                    page.keyboard.down("Control")
-                    page.keyboard.press("a")
-                    page.keyboard.up("Control")
+                    time.sleep(0.5)
+                    
+                    # Clear search more reliably
+                    page.keyboard.press("Control+A")
                     page.keyboard.press("Backspace")
-                    search_box.fill(name)
+                    time.sleep(0.5)
+                    
+                    print(f"  {C.DIM}💬 Typing name: {name}...{C.R}")
+                    page.keyboard.type(name, delay=120)
                     time.sleep(2)
-                    page.keyboard.press("Enter")
-                    time.sleep(2)
-                    print(f"  {C.GREEN}✅ Chat opened: {name}{C.R}")
+                    
+                    # New: Explicitly wait for results and click the first one
+                    print(f"  {C.DIM}💬 Waiting for results and selecting chat...{C.R}")
+                    try:
+                        # Results usually appear in div[role="listitem"] or specific result rows
+                        # We look for a row that contains the name text
+                        result = page.locator('div#pane-side div[role="row"]').filter(has_text=name).first
+                        if result.count() > 0 and result.is_visible():
+                            print(f"  {C.DIM}🎯 Found search result for {name}, clicking...{C.R}")
+                            result.click()
+                        else:
+                            print(f"  {C.DIM}💬 No explicit result found for {name}, trying Enter key...{C.R}")
+                            page.keyboard.press("Enter")
+                    except Exception as e:
+                        print(f"  {C.DIM}⚠️  Error during result selection: {e}. Trying Enter...{C.R}")
+                        page.keyboard.press("Enter")
+                        
+                    time.sleep(3) # Wait for conversation to load
+                    
+                    # Verify if the chat header matches
+                    header = page.locator('header span[title]').filter(has_text=name).first
+                    if header.count() > 0:
+                         print(f"  {C.GREEN}✅ Chat successfully opened: {name}{C.R}")
+                    else:
+                         print(f"  {C.YELLOW}⚠️  Opened chat header might not match '{name}', please check the browser.{C.R}")
                     
                     # Capture confirmation screenshot
                     chat_snap = os.path.join(self.screenshot_dir, f"whatsapp_{name.replace(' ', '_')}.png")
@@ -197,7 +275,12 @@ class WhatsAppClient:
                             
                             # 1. Focus Input Box (Robust Selector)
                             try:
-                                inp = page.locator('footer div[contenteditable="true"]')
+                                # Try robust structural or title selectors first
+                                inp = page.locator('div[contenteditable="true"][data-tab="10"], div[title="Type a message"], footer div[contenteditable="true"]').first
+                                if not inp.is_visible():
+                                     # Fallback to finding the last contenteditable (almost always the chat box)
+                                     inp = page.locator('div[contenteditable="true"]').last
+                                     
                                 inp.click()
                                 time.sleep(0.2)
                                 
@@ -213,10 +296,11 @@ class WhatsAppClient:
                                 
                                 # 3. Fallback: Click Send Button if Enter didn't work
                                 time.sleep(0.5)
-                                send_btn = page.locator('button[aria-label="Send"]')
-                                if send_btn.is_visible():
+                                # The send button aria-label often changes, try multiple
+                                send_btn = page.locator('button[aria-label="Send"], span[data-icon="send"], button[data-icon="send"]')
+                                if send_btn.count() > 0 and send_btn.first.is_visible():
                                     logger.debug("Enter key failed. Clicking Send button.")
-                                    send_btn.click()
+                                    send_btn.first.click()
                                     
                             except Exception as e:
                                 logger.error(f"Error sending message: {e}")

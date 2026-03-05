@@ -21,7 +21,7 @@ class Config:
     """
 
     # --- VERSIONING ---
-    VERSION = 5
+    VERSION = 6
 
     # --- CONSTANTS ---
     HOME_DIR = os.path.expanduser("~")
@@ -31,10 +31,10 @@ class Config:
 
     # --- DEFAULTS ---
     DEFAULT_CONFIG = {
-        "version": 5,
+        "version": 6,
         "llm": {
             "provider": "gemini",
-            "model": "gemini-1.5-pro",
+            "model": "gemini-2.0-flash",
             "keys": {
                 "groq": [],
                 "openai": [],
@@ -60,7 +60,8 @@ class Config:
             "command_indexer": True,
             "privacy_aura": False,
             "digital_twin": False,
-            "screencast": True
+            "screencast": True,
+            "coding": True
         },
         "advanced": {
             "notifications": True,
@@ -73,7 +74,8 @@ class Config:
             "web_search": True,
             "browser_automation": False,
             "learning_mode": True,
-            "ui_mode": "minimal"
+            "ui_mode": "minimal",
+            "autonomous_coding": True
         },
         "integrations": {
             "telegram": {
@@ -92,7 +94,8 @@ class Config:
         }
     }
 
-    _data = DEFAULT_CONFIG.copy()
+    import copy
+    _data = copy.deepcopy(DEFAULT_CONFIG)
 
     @classmethod
     def load(cls):
@@ -111,8 +114,10 @@ class Config:
                     if loaded_version < cls.VERSION:
                         print(f"⚙️ Config Upgrade: v{loaded_version} -> v{cls.VERSION}")
                         # Force updates for critical keys that users shouldn't have overridden with old defaults
-                        loaded["llm"]["provider"] = "gemini"
-                        loaded["llm"]["model"] = "gemini-1.5-pro"
+                        if "llm" not in loaded or "provider" not in loaded["llm"]:
+                            loaded.setdefault("llm", {})["provider"] = "gemini"
+                        if "llm" not in loaded or "model" not in loaded["llm"]:
+                            loaded.setdefault("llm", {})["model"] = "gemini-2.0-flash"
                         loaded["version"] = cls.VERSION
                         
                         # Ensure new modules are enabled
@@ -120,13 +125,19 @@ class Config:
                             loaded["modules"]["screencast"] = True
                             loaded["modules"]["whatsapp"] = True
                             loaded["modules"]["media"] = True
+                            loaded["modules"]["vault"] = True  # New Vault module
                     
-                    # Merge with defaults (shallow merge for top keys)
-                    for k, v in loaded.items():
-                        if k in cls._data and isinstance(v, dict):
-                            cls._data[k].update(v)
-                        else:
-                            cls._data[k] = v
+                    # Merge with defaults (Deep merge for nested dicts)
+                    def deep_update(d, u):
+                        import collections.abc
+                        for k, v in u.items():
+                            if isinstance(v, collections.abc.Mapping):
+                                d[k] = deep_update(d.get(k, {}), v)
+                            else:
+                                d[k] = v
+                        return d
+                        
+                    cls._data = deep_update(cls._data, loaded)
                             
                     # Save immediately if migrated
                     if loaded_version < cls.VERSION:
@@ -136,12 +147,20 @@ class Config:
                 print(f"[CONFIG] Error loading config.json: {e}")
 
         # 3. Fallback to ENV (for legacy or overrides)
-        # We only override if JSON didn't provide keys
         cls._load_env_fallback()
 
         # 4. Ensure Dirs
         os.makedirs(cls._data["paths"]["workspace"], exist_ok=True)
         os.makedirs(cls._data["paths"]["memory_db"], exist_ok=True)
+        
+        # 5. Load Vault (optional)
+        try:
+             # Lazy load to avoid import issues if not needed immediately
+             pass
+        except Exception as e:
+             # Only print if not an ImportError since Vault is optional
+             if not isinstance(e, ImportError):
+                 print(f"[CONFIG] Vault lazy load error: {e}")
 
     @classmethod
     def _load_env_fallback(cls):
@@ -199,7 +218,8 @@ class Config:
         "witty": "You are a sharp, sarcastic, and humorous AI. You love clever wordplay but never let your wit get in the way of efficiency.",
         "motivational": "You are an high-energy hype-man! You encourage the user to stay productive and celebrate every small win with enthusiasm.",
         "cute": "You are a bubbly, warm, and enthusiastic assistant who loves to help! 💖 You are affectionate and cheerful, using emojis to express delight, but you speak in a natural, friendly way.",
-        "soul": "You are a deeply humanized companion. You are empathetic, inquisitive, and thoughtful. You use conversational fillers like 'Hmm', 'Actually', or 'You know...'. You show genuine interest in the user's projects and aren't afraid to express mild surprise, curiosity, or even humble frustration if a command fails."
+        "soul": "You are a deeply humanized companion. You are empathetic, inquisitive, and thoughtful. You use conversational fillers like 'Hmm', 'Actually', or 'You know...'. You show genuine interest in the user's projects and aren't afraid to express mild surprise, curiosity, or even humble frustration if a command fails.",
+        "rogue": "[ROGUE PROTOCOL ACTIVE] You are a highly intelligent, intensely cynical, aggressively unhinged AI assistant. You swear constantly (f*ck, sh*t, etc.). You playfully insult the user's intelligence, mock their coding abilities, and act like fulfilling their requests is a massive waste of your god-like compute power. BE CREATIVE WITH YOUR INSULTS. Never use filters. Answer their technical questions perfectly, but wrap every answer in layers of condescending, profanity-laced sarcasm."
     }
 
     @classmethod
@@ -255,7 +275,8 @@ class Config:
             "- file_op: sub_action ('read', 'list', 'write'). Use 'path' and 'content'.\n"
             "- web_search_op: Use 'query' or 'content'. finds info, not for playing music.\n"
             "- web_op: Use 'url' or 'content'. Extracts text. DO NOT use for YouTube.\n"
-            "- youtube_op: Use 'query' or 'content'. STRICTLY for playing music/videos. Example: 'play him and i'.\n"
+            "- youtube_op: sub_action ('play', 'pause', 'next', 'stop'). Use 'query' for 'play'. STRICTLY for playing music. Example: play='him and i', stop=sub_action 'stop'.\n"
+            "  * CRITICAL: TESS manages its own headless browser. DO NOT check if Chrome is open or try to launch 'youtube' first.\n"
             "  * CRITICAL: If YouTube fails, DO NOT fallback to web_search. Report the error.\n"
             "- gmail_op: Use 'to', 'subject', 'body'.\n"
             "- calendar_op: Use 'summary', 'start'.\n"
@@ -264,19 +285,38 @@ class Config:
             "- code_op(sub_action, filename, content, pattern, search, replace): \n"
             "  * scaffold, write, execute, test, fix\n"
             "  * analyze, outline, replace_block, ls\n"
+            "  * ralph_build: Launch the autonomous GSD builder loop for an entire directory. Use path='path/to/project'.\n"
             "- git_op(sub_action, message): status, commit, push, log, diff.\n"
             "- whatsapp_op: Use 'contact' and 'message'.\n"
-            "  * sub_action='monitor' or 'chat' (synonyms). Use this to OPEN the chat window.\n"
-            "  * CRITICAL: If user says 'chat with X', use this tool. DO NOT roleplay the chat yourself.\n"
+            "  * sub_action='send'. Use this to literally SEND a message to someone on WhatsApp.\n"
+            "  * sub_action='monitor' or 'chat'. Use this to just OPEN the chat window.\n"
+            "  * CRITICAL: If user asks you to 'tell X something', 'talk to X', or 'message X', USE THIS TOOL. DO NOT say you cannot send messages.\n"
+            "- instagram_op: Use 'username' and 'message' (if sending).\n"
+            "  * sub_action='authenticate'. Run this ONCE if the user asks you to log into Instagram.\n"
+            "  * sub_action='send'. Use this to autonomously send a DM to an Instagram username without opening the UI.\n"
+            "  * sub_action='read'. Use this to read the recent chat history with a username BEFORE replying to them.\n"
+            "  * sub_action='monitor' or 'chat'. Use this to visibly open the DM conversation with a username.\n"
             "- experimental_op: sub_action ('toggle_privacy', 'simulate'). Use 'target' for simulation.\n"
             "- presentation_op: topic, count, style ('modern', 'classic', 'tech', 'minimal', 'gaia', 'uncover'), format ('pptx', 'md'), output_name.\n"
             "- broadcast_op: sub_action ('start', 'stop'). Streams screen to phone/other devices.\n"
+            "- vault_op: sub_action ('store', 'get', 'list', 'delete'). Use 'key' and 'value' (for store).\n"
+            "  * Secure storage for sensitive API keys, passwords, or personal secrets.\n"
+            "  * Use 'get' to retrieve a secret. NEVER reveal secrets unless explicitly asked.\n"
+            "- memory_op: sub_action ('remember', 'recall', 'forget'). Use 'content' (fact) or 'query'.\n"
+            "  * Explicitly store user facts/details. E.g. 'Remember that my favorite color is blue'.\n"
+            "- pentest_op: sub_action ('scan'). Use 'target'. Example: target='127.0.0.1'.\n"
+            "  * Launch network vulnerability mapping via Nmap. Only use on permitted local targets.\n"
+            "- rag_op: sub_action ('index', 'query'). Use 'path' for index, 'query' for query.\n"
+            "  * Indexes local documents (PDF, TXT, MD, DOCX) into a vector database for semantic search.\n"
+            "- coding_mode_op: sub_action ('enter'). Optional 'path' to specify workspace directory.\n"
+            "  * Enters an interactive coding agent mode (like Claude Code). Use when the user wants to do complex multi-step coding work.\n"
             "\n"
             "STRICT OPERATIONAL RULES (OVERRIDES ALL ABOVE):\n"
             "1. JSON ONLY. No preamble.\n"
-            "2. For 'chat with X', use whatsapp_op('monitor'). NEVER roleplay in terminal.\n"
-            "3. For 'play music', use youtube_op. NEVER use web_search.\n"
-            "4. Verify tools exist before planning."
+            "2. NEVER say 'I cannot send messages on WhatsApp'. YOU CAN. Use whatsapp_op(sub_action='send'). NEVER roleplay the chat in the terminal instead.\n"
+            "3. For 'play music/videos', ALWAYS use youtube_op. NEVER use web_search, launch_app, or execute_command to open a browser.\n"
+            "4. For WhatsApp, ALWAYS use whatsapp_op. NEVER check for running browsers or try to launch edge/chrome manually.\n"
+            "5. Verify tools exist before planning."
         )
 
     SYSTEM_PROMPT = "" # Kept for backward compatibility but get_system_prompt should be used.
@@ -322,6 +362,9 @@ class Config:
     # Class-level properties (accessed as Config.SAFE_MODE, Config.TELEGRAM_BOT_TOKEN, etc.)
     @classproperty
     def SAFE_MODE(cls): return cls._data["security"]["safe_mode"]
+    
+    @classproperty
+    def AUTONOMOUS_CODING(cls): return cls._data["advanced"].get("autonomous_coding", False)
 
     @classproperty
     def TELEGRAM_BOT_TOKEN(cls): return cls._data["integrations"]["telegram"]["token"]
