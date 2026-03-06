@@ -170,21 +170,29 @@ class SetupWizard:
                             self.config["llm"]["keys"][provider].append(sub_key)
                 else: break
         
-        # Optional: Add keys for others?
-        if self._bool_input(f"Add backup keys for other providers?", False):
-            for p in ["groq", "openai", "deepseek", "gemini"]:
-                if p == provider: continue
-                k_str = self._input(f"{p.title()} API Keys (Optional)", "")
-                if k_str:
-                    self.config["llm"]["keys"][p] = [k.strip() for k in k_str.split(",") if k.strip()]
-
-        # Model
-        default_model = "llama-3.3-70b-versatile"
-        if provider == "openai": default_model = "gpt-4-turbo"
-        elif provider == "gemini": default_model = "gemini-1.5-pro"
-        elif provider == "deepseek": default_model = "deepseek-coder"
-        
-        self.config["llm"]["model"] = self._input("Primary Model Name", default_model)
+        # Model Selection
+        if provider == "gemini":
+            print("\nSelect Gemini Model:")
+            print("  [1] gemini-2.5-flash (Newest, Fast)")
+            print("  [2] gemini-2.0-flash (Stable, Fast)")
+            print("  [3] gemini-2.5-pro (Newest, Powerful)")
+            print("  [4] gemini-1.5-pro-latest (Legacy Pro)")
+            print("  [5] Or enter your own custom model name (e.g. 'gemini-1.5-flash-8b')")
+            
+            m_choice = self._input("Choice", "2")  # Default to 2 (gemini-2.0-flash)
+            gemini_models = {
+                "1": "gemini-2.5-flash", 
+                "2": "gemini-2.0-flash", 
+                "3": "gemini-2.5-pro",
+                "4": "gemini-1.5-pro-latest"
+            }
+            self.config["llm"]["model"] = gemini_models.get(m_choice, m_choice)
+        else:
+            default_model = "llama-3.3-70b-versatile"
+            if provider == "openai": default_model = "gpt-4-turbo"
+            elif provider == "deepseek": default_model = "deepseek-coder"
+            
+            self.config["llm"]["model"] = self._input(f"Primary {provider.title()} Model Name", default_model)
 
     def _setup_security(self):
         print("\n🔹 Step 2: Security Settings")
