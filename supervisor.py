@@ -23,7 +23,7 @@ def start_tess():
         env["PYTHONPATH"] = SCRIPT_DIR + os.pathsep + env.get("PYTHONPATH", "")
         
         result = subprocess.run(
-            [sys.executable, "-m", "src.api.server"], 
+            [sys.executable, "-m", "tess_cli.api.server"],
             cwd=SCRIPT_DIR,
             env=env,
             check=False

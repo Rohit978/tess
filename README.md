@@ -106,6 +106,7 @@ tess init
 git clone https://github.com/Rohit978/tess.git
 cd tess
 pip install -r requirements.txt
+pip install -e .
 playwright install
 ```
 

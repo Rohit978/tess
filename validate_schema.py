@@ -1,6 +1,6 @@
 
 import json
-from src.core.schemas import TessAction
+from tess_cli.core.schemas import TessAction
 from pydantic import TypeAdapter, ValidationError
 
 def test_validation():

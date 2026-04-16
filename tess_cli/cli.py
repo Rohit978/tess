@@ -137,6 +137,20 @@ def main():
             logger.error(e, exc_info=True)
         return
 
+    # Fast Exit for Eval Harness: tess eval
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "eval":
+        print_banner()
+        print_info("Running TESS regression eval harness...")
+        try:
+            from .core.eval_harness import run_regression_suite, print_regression_summary
+
+            summary = run_regression_suite()
+            print_regression_summary(summary)
+        except Exception as e:
+            print_error(f"Eval Harness crashed: {e}")
+            logger.error(e, exc_info=True)
+        return
+
     print_banner()
 
     # Core Initialization

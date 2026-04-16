@@ -122,6 +122,15 @@ class ActionDispatcher:
             
         return out(f"Unknown sys command: {sub}", self.output_handler)
 
+    def _handle_sysadmin_op(self, data):
+        sysadmin = self._get_component('sysadmin', "SysAdmin Skill")
+        if not sysadmin:
+            return
+        sub = data.get("sub_action")
+        if not sub:
+            return out("Error: Missing sysadmin sub_action.", self.output_handler)
+        return out(sysadmin.run(sub), self.output_handler)
+
     def _handle_launch_app(self, data):
         # Special case for WhatsApp "launch" which is actually a monitor mode
         raw_app_name = data.get("app_name") or ""

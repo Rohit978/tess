@@ -271,6 +271,8 @@ class Config:
             "- reply_op: Use 'content' for the chat message.\n"
             "- launch_app: Use 'app_name' or 'content'.\n"
             "- system_control: sub_action ('screenshot', 'lock', etc.).\n"
+            "- sysadmin_op: sub_action ('wifi_on', 'wifi_off', 'bluetooth_on', 'bluetooth_off', 'battery_status', 'system_info', 'mute_mic', 'unmute_mic').\n"
+            "  * Prefer this for laptop control requests like Wi-Fi, Bluetooth, battery, and system specs.\n"
             "- execute_command: Use 'command' or 'content'. REQUIRED.\n"
             "- file_op: sub_action ('read', 'list', 'write'). Use 'path' and 'content'.\n"
             "- web_search_op: Use 'query' or 'content'. finds info, not for playing music.\n"

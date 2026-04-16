@@ -60,13 +60,14 @@ if (Test-Path $venvPath) {
 # 3. Install Dependencies
 Write-Host "`n[3/5] Installing Libraries (this may take a minute)..."
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python -m pip install -e .
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Dependency Installation Failed." -ForegroundColor Red
+    Write-Host "❌ Dependency/Package Installation Failed." -ForegroundColor Red
     Pause
     Exit
 }
-Write-Host "✅ Dependencies Installed." -ForegroundColor Green
+Write-Host "✅ Dependencies + TESS package installed." -ForegroundColor Green
 
 # 4. LLM Configuration (Interactive)
 Write-Host "`n[4/5] Configuring Your AI Brain..."
