@@ -1,4 +1,4 @@
-# 🧠 TESS Terminal Pro (v2.0)
+# 🧠 TESS Terminal Pro (v5.0)
 > **The AI Operating System that lives in your terminal.**
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=for-the-badge)
@@ -43,9 +43,9 @@ It combines **Local Execution** (PowerShell, Python) with **Cloud Intelligence**
 
 ---
 
-## 🔄 Updating from v1.x / v5.x
+## 🔄 Updating from v1.x / v4.x
 
-If you are already using TESS, follow these steps to upgrade to **v2.0**:
+If you are already using TESS, follow these steps to upgrade to **v5.0**:
 
 1. **Pull the latest changes:**
    ```bash
@@ -71,11 +71,26 @@ If you are already using TESS, follow these steps to upgrade to **v2.0**:
 - **SysAdmin:** "Turn off WiFi", "Check battery health", "Get system specs".
 - **Process Management:** List, kill, or monitor running processes.
 - **Power:** Sleep, Shutdown, or Restart with voice commands.
+- **Desktop Vision (MVP):** List visible app windows, focus a target app, and interact using click/type/hotkey actions.
+- **Stealth Controls:** `Ctrl+Shift+H` toggles TESS terminal visibility. TESS can also hide/show app windows by app name/title.
+
+### 🌐 DOM Automation (MVP)
+- **Browser Control:** Open pages, navigate, click selectors, type/fill fields, extract text/HTML, and run JavaScript.
+- **Playwright-backed:** Works for browser/Electron DOM surfaces via `dom_op`.
+- **Advanced Locators:** Supports CSS, XPath, text, and role selectors with wait/element-discovery helpers.
+
+### 🎤 Hearing (MVP)
+- **Push-to-talk:** Capture microphone audio and transcribe with local Whisper.
+- **Smart listen:** Optional silence-aware listening mode for longer speech.
+- **System audio listening:** Capture system output audio and transcribe it.
+- **System audio voice reply:** Listen to system audio and answer back in voice.
+- **Wake Listener:** Optional always-on trigger: clap twice, say "tess", and it auto-launches TESS terminal.
 
 ### 🌐 Web & Research
 - **Deep Research:** "Research the history of Quantum Computing (Depth: 2)."
 - **Headless Browsing:** Scrape data without opening windows.
 - **Screenshots:** Capture full-page snaps of any website.
+- **Dual-device session API:** Pair phone + laptop with session IDs and live answer feed (SSE).
 
 ### 📂 File & Coding
 - **Active Learning (Librarian):** Watches your project folders and learns code structure.
@@ -122,6 +137,37 @@ tess init
 tess
 ```
 
+### 3.1 Dual-device API (optional)
+Run the API server:
+```bash
+python supervisor.py
+```
+Create a session:
+```text
+POST /api/sessions
+```
+Open the phone feed at:
+```text
+/phone/{sessionId}
+```
+
+### 4. Optional Wake Listener (Windows)
+Run:
+```bat
+Start_TESS_Wake.bat
+```
+This listens for **two claps + "tess"** and launches `Start_TESS.bat` automatically.
+
+### 5. Always-On Wake Mode (Windows)
+To keep wake listening always active after login:
+```bat
+Enable_TESS_AlwaysOn.bat
+```
+To disable:
+```bat
+Disable_TESS_AlwaysOn.bat
+```
+
 ---
 
 ## 🎮 Usage Guide
@@ -134,6 +180,11 @@ tess
 | **Create PDF** | `create a pdf summary of this project` |
 | **Organize Files** | `organize downloads` |
 | **System Info** | `what is my ip` |
+| **See Open Apps** | `show me open desktop apps` |
+| **Hide an App** | `hide the notepad app` |
+| **Show Hidden Apps** | `show hidden apps` |
+| **DOM Click** | `open https://example.com and click #login` |
+| **Push-to-talk Hear** | `listen for 5 seconds` |
 | **Code Help** | `write a python script to ping google` |
 | **Switch Persona** | `persona cute` / `persona professional` |
 

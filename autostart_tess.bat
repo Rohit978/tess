@@ -6,4 +6,4 @@ echo Waiting for system to stabilize (10s)...
 timeout /t 10 /nobreak >nul
 
 cd /d "%~dp0"
-call Start_TESS.bat
+call Start_TESS_Wake.bat

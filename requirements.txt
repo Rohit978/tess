@@ -19,6 +19,7 @@ numpy<2.0.0
 beautifulsoup4>=4.12.0
 mss>=9.0.1
 pyautogui>=0.9.54
+pyngrok>=7.0.0
 clipboard>=0.0.4
 psutil>=5.9.0
 screen-brightness-control>=0.8.0
@@ -34,16 +35,22 @@ duckduckgo-search>=6.0.0
 playwright>=1.40.0
 watchdog>=3.0.0
 pathspec>=0.11.0
-pathspec>=0.11.0
 rich>=13.0.0
 win11toast>=0.33
 sounddevice>=0.4.6
 scipy>=1.11.0
 openai-whisper>=20231117
 
+# API Server
+fastapi>=0.110.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9
+
+# Scheduling
+schedule>=1.2.0
+
 # Distribution
 build
-twine
 twine
 wheel
 setuptools

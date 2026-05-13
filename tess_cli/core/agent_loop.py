@@ -35,6 +35,9 @@ class AgenticLoop:
             "sysadmin_op": ["sub_action"],
             "youtube_op": ["sub_action", "query"],
             "whatsapp_op": ["sub_action", "contact", "message"],
+            "desktop_vision_op": ["sub_action"],
+            "dom_op": ["sub_action"],
+            "hearing_op": ["sub_action"],
         }
 
         required = required_fields.get(action)
@@ -65,6 +68,7 @@ class AgenticLoop:
         return any(marker in text for marker in failure_markers)
 
     def run(self, user_query):
+        original_query = user_query  # Preserve original intent; never mutate this
         current_step = 0
         replans = 0
         reflections = []
@@ -88,6 +92,7 @@ class AgenticLoop:
                 else:
                     latest_reflection = reflections[-1] if reflections else "No prior issues."
                     input_msg = (
+                        f"Original goal: {original_query}. "
                         "Continue the task. "
                         f"Latest reflection: {latest_reflection} "
                         "If previous action failed, choose a different strategy."
@@ -134,7 +139,7 @@ class AgenticLoop:
                             break
                         continue
 
-                # Execute
+                # Execute terminal actions (after security check above)
                 terminal_actions = ["final_reply", "reply_op", "whatsapp_op", "youtube_op", "broadcast_op", "instagram_op"]
                 if action in terminal_actions:
                     if action not in ["final_reply", "reply_op"]:
@@ -157,7 +162,8 @@ class AgenticLoop:
                         print_error("Agent stopped: too many failed executions.")
                         break
                 else:
-                    user_query = f"Result of {action}: {res}. Next?"
+                    # Feed result back as context without mutating the original query
+                    reflections.append(f"Completed '{action}' successfully.")
                 time.sleep(0.5)
 
             except Exception as e:

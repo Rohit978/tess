@@ -29,8 +29,29 @@ class VaultManager:
             key = Fernet.generate_key()
             with open(self.KEY_FILE, "wb") as f:
                 f.write(key)
-            # On Windows, we can't easily restrict file permissions like chmod 600,
-            # but we hide it by starting with dot.
+            self._lock_key_file()
+
+    def _lock_key_file(self):
+        """
+        Restrict the key file to the current user only using Windows icacls.
+        Equivalent to chmod 600 on Unix.
+        Falls back silently if icacls is unavailable.
+        """
+        import subprocess
+        try:
+            username = os.environ.get("USERNAME", "")
+            if not username:
+                return
+            # Remove all inherited ACEs, then grant only the current user full control
+            subprocess.run(
+                ["icacls", self.KEY_FILE, "/inheritance:r", "/grant:r", f"{username}:F"],
+                check=False,
+                capture_output=True,
+                timeout=5
+            )
+            logger.info("Vault key file permissions locked to current user.")
+        except Exception as e:
+            logger.warning(f"Could not lock vault key permissions: {e}")
             
     def _load_key(self):
         """Load the encryption key."""

@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import platform
 import sounddevice as sd
 import numpy as np
 import scipy.io.wavfile as wav
@@ -120,6 +121,55 @@ class VoiceClient:
             
         except Exception as e:
             logger.error(f"Smart Listen failed: {e}")
+            return None
+
+    def record_system_audio(self, duration=6, sample_rate=16000):
+        """
+        Records system output audio (Windows WASAPI loopback).
+        Returns path to saved wav file or None.
+        """
+        if platform.system() != "Windows":
+            logger.error("System audio loopback currently supports Windows only.")
+            return None
+
+        try:
+            default_dev = sd.default.device
+            output_dev = None
+            if isinstance(default_dev, (list, tuple)) and len(default_dev) >= 2:
+                output_dev = default_dev[1]
+            if output_dev is None or int(output_dev) < 0:
+                output_dev = sd.default.device[1]
+
+            dev_info = sd.query_devices(output_dev)
+            channels = int(dev_info.get("max_output_channels", 2)) or 2
+            channels = max(1, min(channels, 2))
+
+            logger.info(f"Recording system audio for {duration}s via loopback (device={output_dev})...")
+
+            wasapi = sd.WasapiSettings(loopback=True)
+            data = sd.rec(
+                int(float(duration) * int(sample_rate)),
+                samplerate=int(sample_rate),
+                channels=channels,
+                dtype="float32",
+                device=output_dev,
+                extra_settings=wasapi,
+            )
+            sd.wait()
+
+            peak = float(np.max(np.abs(data))) if data.size else 0.0
+            if peak < 1e-4:
+                logger.warning("System audio capture is nearly silent.")
+
+            pcm = np.clip(data, -1.0, 1.0)
+            pcm = (pcm * 32767).astype(np.int16)
+
+            filename = f"system_audio_{int(time.time())}.wav"
+            filepath = os.path.join(self.audio_dir, filename)
+            wav.write(filepath, int(sample_rate), pcm)
+            return filepath
+        except Exception as e:
+            logger.error(f"System audio recording failed: {e}")
             return None
 
     def transcribe(self, audio_file):

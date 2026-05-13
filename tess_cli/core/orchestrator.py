@@ -131,6 +131,166 @@ class ActionDispatcher:
             return out("Error: Missing sysadmin sub_action.", self.output_handler)
         return out(sysadmin.run(sub), self.output_handler)
 
+    def _handle_desktop_vision_op(self, data):
+        dv = self.components.get("desktop_vision")
+        if not dv:
+            from .desktop_vision import DesktopVisionController
+            dv = DesktopVisionController()
+            self.components["desktop_vision"] = dv
+
+        sub = data.get("sub_action")
+        if sub == "list_apps":
+            return out(dv.list_visible_apps(query=data.get("query"), limit=data.get("limit", 20)), self.output_handler)
+        if sub == "active_app":
+            return out(dv.active_app(), self.output_handler)
+        if sub == "focus_app":
+            target = data.get("title") or data.get("app_name") or data.get("query")
+            return out(dv.focus_app(target), self.output_handler)
+        if sub == "screenshot":
+            return out(dv.screenshot(filename=data.get("filename")), self.output_handler)
+        if sub == "click":
+            return out(dv.click(data.get("x"), data.get("y")), self.output_handler)
+        if sub == "type":
+            return out(dv.type_text(data.get("text")), self.output_handler)
+        if sub == "hotkey":
+            return out(dv.hotkey(data.get("keys")), self.output_handler)
+        if sub == "hide_app":
+            target = data.get("title") or data.get("app_name") or data.get("query")
+            return out(dv.hide_app(target, pid=data.get("pid")), self.output_handler)
+        if sub == "show_app":
+            target = data.get("title") or data.get("app_name") or data.get("query")
+            return out(dv.show_app(target, pid=data.get("pid")), self.output_handler)
+        if sub == "list_hidden_apps":
+            return out(dv.list_hidden_apps(), self.output_handler)
+        return out(f"Unknown desktop_vision_op sub_action: {sub}", self.output_handler)
+
+    def _handle_dom_op(self, data):
+        dom = self.components.get("dom_controller")
+        if not dom:
+            from .dom_controller import DOMController
+            dom = DOMController()
+            self.components["dom_controller"] = dom
+
+        sub = data.get("sub_action")
+        browser = data.get("browser", "edge")
+        headless = bool(data.get("headless", False))
+        try:
+            if sub == "open":
+                return out(
+                    dom.open(url=data.get("url"), headless=headless, browser_name=browser),
+                    self.output_handler
+                )
+            if sub == "navigate":
+                return out(
+                    dom.navigate(data.get("url"), browser_name=browser, headless=headless),
+                    self.output_handler
+                )
+            if sub == "click":
+                return out(dom.click(data.get("selector")), self.output_handler)
+            if sub == "type":
+                return out(dom.type(data.get("selector"), data.get("text"), clear_first=False), self.output_handler)
+            if sub == "fill":
+                return out(dom.type(data.get("selector"), data.get("text"), clear_first=True), self.output_handler)
+            if sub == "press":
+                return out(dom.press(data.get("key")), self.output_handler)
+            if sub == "wait":
+                return out(
+                    dom.wait_for(
+                        data.get("selector"),
+                        state=data.get("state", "visible"),
+                        timeout=int(data.get("timeout", 10000)),
+                    ),
+                    self.output_handler,
+                )
+            if sub == "text":
+                return out(
+                    dom.extract_text(selector=data.get("selector"), max_chars=data.get("max_chars", 2000)),
+                    self.output_handler
+                )
+            if sub == "html":
+                return out(
+                    dom.get_html(selector=data.get("selector"), max_chars=data.get("max_chars", 3000)),
+                    self.output_handler
+                )
+            if sub == "eval":
+                return out(dom.evaluate(data.get("script")), self.output_handler)
+            if sub == "elements":
+                return out(
+                    dom.elements(
+                        selector=data.get("selector"),
+                        limit=int(data.get("limit", 20)),
+                    ),
+                    self.output_handler,
+                )
+            if sub == "info":
+                return out(dom.info(), self.output_handler)
+            if sub == "screenshot":
+                return out(dom.screenshot(path=data.get("path")), self.output_handler)
+            if sub == "close":
+                return out(dom.close(), self.output_handler)
+        except Exception as e:
+            logger.error(f"DOM operation failed: {e}", exc_info=True)
+            return out(f"DOM operation failed: {e}", self.output_handler)
+
+        return out(f"Unknown dom_op sub_action: {sub}", self.output_handler)
+
+    def _handle_hearing_op(self, data):
+        vc = self.components.get("voice_client")
+        if not vc:
+            from .voice_client import VoiceClient
+            vc = VoiceClient(model_size="base")
+            self.components["voice_client"] = vc
+
+        sub = data.get("sub_action")
+        if sub == "listen_ptt":
+            duration = int(data.get("duration", 5))
+            audio_file = vc.record_audio(duration=max(1, duration))
+            if not audio_file:
+                return out("No audio captured.", self.output_handler)
+            text = vc.transcribe(audio_file)
+            return out(f"Heard: {text}" if text else "Heard nothing recognizable.", self.output_handler)
+        if sub == "smart_listen":
+            audio_file = vc.listen(max_duration=int(data.get("max_duration", 30)))
+            if not audio_file:
+                return out("No speech detected.", self.output_handler)
+            text = vc.transcribe(audio_file)
+            return out(f"Heard: {text}" if text else "Heard nothing recognizable.", self.output_handler)
+        if sub == "transcribe_file":
+            path = data.get("path")
+            text = vc.transcribe(path)
+            return out(f"Heard: {text}" if text else "Transcription failed.", self.output_handler)
+        if sub == "listen_system":
+            duration = int(data.get("duration", 6))
+            audio_file = vc.record_system_audio(duration=max(1, duration))
+            if not audio_file:
+                return out("System audio capture failed.", self.output_handler)
+            text = vc.transcribe(audio_file)
+            return out(f"Heard from system audio: {text}" if text else "No speech detected in system audio.", self.output_handler)
+        if sub == "listen_system_reply":
+            duration = int(data.get("duration", 6))
+            audio_file = vc.record_system_audio(duration=max(1, duration))
+            if not audio_file:
+                return out("System audio capture failed.", self.output_handler)
+            heard = vc.transcribe(audio_file)
+            if not heard:
+                return out("No speech detected in system audio.", self.output_handler)
+            prompt = (
+                "You heard this from system audio. Respond briefly and naturally in one or two sentences:\n"
+                f"{heard}"
+            )
+            reply = self.brain.request_completion(
+                [{"role": "user", "content": prompt}],
+                json_mode=False,
+                temperature=0.5
+            ) or "I heard that. Could you repeat it once clearly?"
+            vc.speak(reply)
+            return out(f"Heard: {heard}\nSpoken reply: {reply}", self.output_handler)
+        if sub == "speak":
+            text = data.get("text")
+            ok = vc.speak(text or "")
+            return out("Spoken successfully." if ok else "Speak failed.", self.output_handler)
+        return out(f"Unknown hearing_op sub_action: {sub}", self.output_handler)
+
     def _handle_launch_app(self, data):
         # Special case for WhatsApp "launch" which is actually a monitor mode
         raw_app_name = data.get("app_name") or ""
@@ -281,14 +441,33 @@ class ActionDispatcher:
         
         # Fallback if LLM forgets sub_action
         if not sub:
-            sub = "send" if message else "monitor"
+            hint = " ".join([
+                str(data.get("thought", "")),
+                str(data.get("reason", "")),
+                str(data.get("content", "")),
+                str(data.get("query", "")),
+                str(data.get("goal", "")),
+            ]).lower()
+            if any(k in hint for k in ["answer call", "pick up", "pickup", "accept call"]):
+                sub = "answer"
+            elif any(k in hint for k in ["call", "voice call", "video call", "ring"]):
+                sub = "call"
+            else:
+                sub = "send" if message else "monitor"
 
         if sub == "send":
             return out(wa.send_message(contact, message), self.output_handler)
         elif sub in ["monitor", "chat"]:
             wa.monitor_chat(contact if str(contact).lower() != "none" else None)
             return out(f"Monitoring chat...", self.output_handler)
-            
+        elif sub == "call":
+            return out(wa.call_contact(contact, video=bool(data.get("video", False))), self.output_handler)
+        elif sub == "answer":
+            return out(wa.answer_call(), self.output_handler)
+        elif sub == "stop":
+            wa.stop()
+            return out("Stopped WhatsApp monitor.", self.output_handler)
+             
         return out(f"Error: Unknown WhatsApp sub_action '{sub}'", self.output_handler)
 
     def _handle_youtube_op(self, data):

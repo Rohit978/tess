@@ -21,7 +21,11 @@ $FilesToCopy = @(
     "Install_TESS.bat",
     "supervisor.py",
     "main.py",
-    "Start_TESS.bat"
+    "Start_TESS.bat",
+    "Start_TESS_Wake.bat",
+    "Enable_TESS_AlwaysOn.bat",
+    "Disable_TESS_AlwaysOn.bat",
+    "autostart_tess.bat"
 )
 
 foreach ($file in $FilesToCopy) {

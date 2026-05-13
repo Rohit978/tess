@@ -39,12 +39,21 @@ setup(
         "screen-brightness-control>=0.8.0",
         "google-api-python-client>=2.0.0",
         "google-auth-oauthlib>=1.0.0",
-        "google-auth-httplib2>=0.1.0"
+        "google-auth-httplib2>=0.1.0",
+        "fastapi>=0.110.0",
+        "uvicorn>=0.29.0",
+        "python-multipart>=0.0.9",
+        "mss>=9.0.1",
+        "pyngrok>=7.0.0",
+        "schedule>=1.2.0",
     ],
     entry_points={
         'console_scripts': [
             'tess=tess_cli.cli:main',
         ],
+    },
+    extras_require={
+        "dev": ["pytest>=7.0", "pytest-asyncio>=0.21"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

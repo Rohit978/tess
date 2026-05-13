@@ -32,6 +32,50 @@ class SystemControlAction(BaseAction):
     text: Optional[str] = None # For type
     key: Optional[str] = None  # For press
 
+class DesktopVisionAction(BaseAction):
+    action: L["desktop_vision_op"]
+    sub_action: L[
+        "list_apps", "active_app", "focus_app", "screenshot", "click", "type", "hotkey",
+        "hide_app", "show_app", "list_hidden_apps"
+    ]
+    query: Optional[str] = None
+    app_name: Optional[str] = None
+    title: Optional[str] = None
+    limit: int = 20
+    filename: Optional[str] = None
+    x: Optional[int] = None
+    y: Optional[int] = None
+    pid: Optional[int] = None
+    text: Optional[str] = None
+    keys: Optional[Union[str, list[str]]] = None
+
+class DOMAction(BaseAction):
+    action: L["dom_op"]
+    sub_action: L[
+        "open", "navigate", "click", "type", "fill", "press", "wait",
+        "text", "html", "eval", "elements", "info", "screenshot", "close"
+    ]
+    url: Optional[str] = None
+    selector: Optional[str] = None
+    text: Optional[str] = None
+    key: Optional[str] = None
+    state: Optional[str] = "visible"
+    timeout: int = 10000
+    script: Optional[str] = None
+    max_chars: int = 2000
+    limit: int = 20
+    path: Optional[str] = None
+    headless: bool = False
+    browser: L["edge", "chrome", "chromium"] = "edge"
+
+class HearingAction(BaseAction):
+    action: L["hearing_op"]
+    sub_action: L["listen_ptt", "smart_listen", "transcribe_file", "listen_system", "listen_system_reply", "speak"]
+    duration: int = 5
+    max_duration: int = 30
+    path: Optional[str] = None
+    text: Optional[str] = None
+
 # --- File & Memory ---
 class FileOpAction(BaseAction):
     action: L["file_op"]
@@ -59,6 +103,7 @@ class WhatsAppAction(BaseAction):
     sub_action: L["monitor", "send", "stop", "answer", "call"]
     contact: Optional[str] = None
     message: Optional[str] = None
+    video: bool = False
 
 class InstagramAction(BaseAction):
     action: L["instagram_op"]
@@ -212,6 +257,7 @@ class ErrorAction(BaseAction):
 # Master Union
 TessAction = Union[
     LaunchAppAction, ExecuteCommandAction, BrowserControlAction, SystemControlAction,
+    DesktopVisionAction, DOMAction, HearingAction,
     FileOpAction, KnowledgeOpAction, WhatsAppAction, InstagramAction, YouTubeAction, TaskOpAction,
     PlannerAction, OrganizeOpAction, WebSearchAction, WebOpAction, ErrorAction, # Error fallback
     CalendarAction, CoderAction, GmailAction, MemoryAction, ReplyAction,

@@ -112,7 +112,7 @@ Set-Content -Path $envFile -Value $envContent
 Write-Host "✅ Configuration saved to $envFile." -ForegroundColor Green
 
 # 5. Create Desktop Shortcut
-Write-Host "`n[5/6] Creating Desktop Shortcut..."
+Write-Host "`n[5/7] Creating Desktop Shortcuts..."
 $WshShell = New-Object -comObject WScript.Shell
 $DesktopPath = [Environment]::GetFolderPath("Desktop")
 $Shortcut = $WshShell.CreateShortcut("$DesktopPath\TESS AI.lnk")
@@ -122,8 +122,25 @@ $Shortcut.IconLocation = "shell32.dll,23" # Help/Question Icon (or use a custom 
 $Shortcut.Save()
 Write-Host "✅ Shortcut 'TESS AI' created on Desktop." -ForegroundColor Green
 
-# 6. Launch
-Write-Host "`n[6/6] Launching TESS..."
+$WakeShortcut = $WshShell.CreateShortcut("$DesktopPath\TESS Wake Listener.lnk")
+$WakeShortcut.TargetPath = "$PWD\Start_TESS_Wake.bat"
+$WakeShortcut.WorkingDirectory = "$PWD"
+$WakeShortcut.IconLocation = "shell32.dll,23"
+$WakeShortcut.Save()
+Write-Host "✅ Shortcut 'TESS Wake Listener' created on Desktop." -ForegroundColor Green
+
+# 6. Enable Always-On Wake Listener (Startup)
+Write-Host "`n[6/7] Enabling Always-On Wake Listener..."
+$StartupPath = [Environment]::GetFolderPath("Startup")
+$StartupShortcut = $WshShell.CreateShortcut("$StartupPath\TESS Wake Listener.lnk")
+$StartupShortcut.TargetPath = "$PWD\Start_TESS_Wake.bat"
+$StartupShortcut.WorkingDirectory = "$PWD"
+$StartupShortcut.IconLocation = "shell32.dll,23"
+$StartupShortcut.Save()
+Write-Host "✅ Always-On enabled: wake listener will start at login." -ForegroundColor Green
+
+# 7. Launch
+Write-Host "`n[7/7] Launching TESS..."
 Write-Host "--------------------------------------------------" -ForegroundColor Cyan
 Wait-Event -Timeout 2
 

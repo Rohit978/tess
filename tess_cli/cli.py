@@ -30,6 +30,8 @@ from .core.security import SecurityEngine
 # Components
 from .core.app_launcher import AppLauncher
 from .core.system_controller import SystemController
+from .core.desktop_vision import DesktopVisionController
+from .core.dom_controller import DOMController
 from .core.file_manager import FileManager
 from .core.knowledge_base import KnowledgeBase
 from .core.planner import Planner
@@ -49,6 +51,7 @@ from .core.scheduler import TessScheduler
 from .core.guardian import Guardian
 from .core.sandbox import Sandbox
 from .core.ralph_loop import RalphOrchestrator
+from .core.terminal_visibility import TerminalVisibilityController
 
 # Skills
 from .skills.project_director import ProjectDirector
@@ -59,11 +62,11 @@ from .skills.presentation_skill import PresentationSkill
 logger = setup_logger("Main")
 
 def start_telegram_bot(profiles, components, screencast=None):
-    """Runs the Telegram Bot in a separate thread."""
+    """Runs the Telegram Bot in a separate thread with capped retries."""
     try:
         from .interfaces.telegram_bot import TessBot
         valid_comps = {k: v for k, v in components.items() if v is not None}
-        
+
         bot = TessBot(
             profile_manager=profiles,
             launcher=valid_comps.get('launcher'),
@@ -78,14 +81,22 @@ def start_telegram_bot(profiles, components, screencast=None):
             executor=valid_comps.get('executor'),
             screencast=screencast
         )
-        
-        while True:
+
+        MAX_RETRIES = 10
+        for attempt in range(1, MAX_RETRIES + 1):
             try:
                 bot.run()
-                break # Normal exit
+                break  # Normal exit
             except Exception as loop_e:
-                logger.error(f"Telegram Bot failed: {loop_e}. Retrying in 10s...")
-                time.sleep(10)
+                wait = min(10 * attempt, 300)  # Exponential cap at 5 min
+                logger.error(
+                    f"Telegram Bot failed (attempt {attempt}/{MAX_RETRIES}): {loop_e}. "
+                    f"Retrying in {wait}s..."
+                )
+                if attempt >= MAX_RETRIES:
+                    logger.error("Telegram Bot: max retries reached. Giving up.")
+                    break
+                time.sleep(wait)
 
     except Exception as e:
         logger.error(f"Telegram Bot initialization failed: {e}")
@@ -169,12 +180,15 @@ def main():
         sys.exit(1)
 
     # Component Registration
+    terminal_visibility = None
     comps = {
         'brain': brain,
         'executor': executor,
         'security': security,
         'launcher': AppLauncher(),
         'sys_ctrl': SystemController(),
+        'desktop_vision': DesktopVisionController(),
+        'dom_controller': DOMController(),
         'file_mgr': FileManager(),
         'task_registry': TaskRegistry(),
         'sysadmin': SysAdminSkill(),
@@ -182,6 +196,14 @@ def main():
         'knowledge_db': knowledge_db,
         'user_profile': user_profile
     }
+
+    try:
+        terminal_visibility = TerminalVisibilityController()
+        terminal_visibility.start()
+        comps['terminal_visibility'] = terminal_visibility
+        print_info("Hotkey enabled: Ctrl+Shift+H toggles TESS terminal visibility.")
+    except Exception as e:
+        logger.warning(f"Terminal visibility hotkey unavailable: {e}")
 
     # Conditional Features
     if Config.is_module_enabled("web_search"):
@@ -200,6 +222,9 @@ def main():
         vc = VoiceClient(model_size="base")
         comps['whatsapp'] = WhatsAppClient(brain, voice_client=vc)
         comps['voice_client'] = vc
+
+    if "voice_client" not in comps:
+        comps['voice_client'] = VoiceClient(model_size="base")
 
     if Config.is_module_enabled("media"): 
         comps['youtube_client'] = YouTubeClient(headless=False)
@@ -271,59 +296,63 @@ def main():
     print_ready()
 
     # Main Loop
-    while True:
-        try:
-            user_input = console.input(get_prompt()).strip()
-            if not user_input: continue
-            
-            # System Commands
-            if user_input.lower() in ["exit", "quit"]:
-                user_profile.save()
-                break
+    try:
+        while True:
+            try:
+                user_input = console.input(get_prompt()).strip()
+                if not user_input: continue
                 
-            if user_input.lower() == "help":
-                print_help()
-                continue
+                # System Commands
+                if user_input.lower() in ["exit", "quit"]:
+                    user_profile.save()
+                    break
+                    
+                if user_input.lower() == "help":
+                    print_help()
+                    continue
 
-            if user_input.lower() == "status":
-                boot_sequence(comps, Config._data)
-                continue
+                if user_input.lower() == "status":
+                    boot_sequence(comps, Config._data)
+                    continue
 
-            # Persona
-            if user_input.lower().startswith("persona "):
-                target = user_input[8:].strip().lower()
-                if target in Config.PERSONALITY_PROMPTS:
-                    brain.personality = target
-                    brain.history[0]["content"] = Config.get_system_prompt(target)
-                    print_success(f"Persona: {target.upper()}")
-                continue
+                # Persona
+                if user_input.lower().startswith("persona "):
+                    target = user_input[8:].strip().lower()
+                    if target in Config.PERSONALITY_PROMPTS:
+                        brain.personality = target
+                        brain.history[0]["content"] = Config.get_system_prompt(target)
+                        print_success(f"Persona: {target.upper()}")
+                    continue
 
-            # Director Mode
-            if user_input.lower().startswith("director:"):
-                comps['director'].loop(user_input[9:].strip())
-                continue
+                # Director Mode
+                if user_input.lower().startswith("director:"):
+                    comps['director'].loop(user_input[9:].strip())
+                    continue
 
-            # Coding Mode
-            if user_input.lower().startswith("code"):
-                agent = comps.get('coding_agent')
-                if agent:
-                    path = user_input[4:].strip() or os.getcwd()
-                    agent.start(path)
-                else:
-                    print_warning("Coding module not enabled. Run 'tess init' to configure.")
-                continue
+                # Coding Mode
+                if user_input.lower().startswith("code"):
+                    agent = comps.get('coding_agent')
+                    if agent:
+                        path = user_input[4:].strip() or os.getcwd()
+                        agent.start(path)
+                    else:
+                        print_warning("Coding module not enabled. Run 'tess init' to configure.")
+                    continue
 
-            # Agent Loop
-            from .core.agent_loop import AgenticLoop
-            AgenticLoop(brain, comps).run(user_input)
-            
-            user_profile.track_command("agent_task")
+                # Agent Loop
+                from .core.agent_loop import AgenticLoop
+                AgenticLoop(brain, comps).run(user_input)
+                
+                user_profile.track_command("agent_task")
 
-        except KeyboardInterrupt:
-            break
-        except Exception as e:
-            print_error(f"Error: {e}")
-            logger.error(e, exc_info=True)
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                print_error(f"Error: {e}")
+                logger.error(e, exc_info=True)
+    finally:
+        if terminal_visibility:
+            terminal_visibility.stop()
 
     print_goodbye(user_profile.name)
 

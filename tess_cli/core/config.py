@@ -1,7 +1,23 @@
 import os
 import json
+import copy
 import random
+import collections.abc
 from dotenv import load_dotenv
+
+
+
+def _deep_update(base: dict, overrides: dict) -> dict:
+    """
+    Recursively merge `overrides` into `base`.
+    Values in `overrides` win; nested dicts are merged rather than replaced.
+    """
+    for k, v in overrides.items():
+        if isinstance(v, collections.abc.Mapping) and isinstance(base.get(k), collections.abc.Mapping):
+            base[k] = _deep_update(base[k], v)
+        else:
+            base[k] = v
+    return base
 
 
 class classproperty:
@@ -94,8 +110,8 @@ class Config:
         }
     }
 
-    import copy
-    _data = copy.deepcopy(DEFAULT_CONFIG)
+    import copy as _copy_mod
+    _data = _copy_mod.deepcopy(DEFAULT_CONFIG)
 
     @classmethod
     def load(cls):
@@ -127,18 +143,10 @@ class Config:
                             loaded["modules"]["media"] = True
                             loaded["modules"]["vault"] = True  # New Vault module
                     
-                    # Merge with defaults (Deep merge for nested dicts)
-                    def deep_update(d, u):
-                        import collections.abc
-                        for k, v in u.items():
-                            if isinstance(v, collections.abc.Mapping):
-                                d[k] = deep_update(d.get(k, {}), v)
-                            else:
-                                d[k] = v
-                        return d
-                        
-                    cls._data = deep_update(cls._data, loaded)
-                            
+                    # Merge loaded config with defaults using module-level _deep_update.
+                    # loaded values win over defaults; nested dicts are merged.
+                    cls._data = _deep_update(cls._data, loaded)
+
                     # Save immediately if migrated
                     if loaded_version < cls.VERSION:
                         cls.save()
@@ -280,6 +288,15 @@ class Config:
             "- youtube_op: sub_action ('play', 'pause', 'next', 'stop'). Use 'query' for 'play'. STRICTLY for playing music. Example: play='him and i', stop=sub_action 'stop'.\n"
             "  * CRITICAL: TESS manages its own headless browser. DO NOT check if Chrome is open or try to launch 'youtube' first.\n"
             "  * CRITICAL: If YouTube fails, DO NOT fallback to web_search. Report the error.\n"
+            "- desktop_vision_op: sub_action ('list_apps', 'active_app', 'focus_app', 'screenshot', 'click', 'type', 'hotkey', 'hide_app', 'show_app', 'list_hidden_apps').\n"
+            "  * Use for desktop app perception/manipulation. Can list visible app windows, hide/show app windows, and interact with focused apps.\n"
+            "  * hide_app/show_app also accept optional 'pid' for PID-targeted window control.\n"
+            "- dom_op: sub_action ('open', 'navigate', 'click', 'type', 'fill', 'press', 'wait', 'text', 'html', 'eval', 'elements', 'info', 'screenshot', 'close').\n"
+            "  * Use for browser DOM automation only. Supports selectors in css/xpath/text/role formats.\n"
+            "  * Selector examples: css=#login, xpath=//button[contains(.,'Next')], text=Continue, role=button;name=Continue\n"
+            "  * Default browser is Edge. You can pass browser='edge'|'chrome'|'chromium'.\n"
+            "- hearing_op: sub_action ('listen_ptt', 'smart_listen', 'transcribe_file', 'listen_system', 'listen_system_reply', 'speak').\n"
+            "  * Use for push-to-talk hearing, system-audio listening, and speech I/O.\n"
             "- gmail_op: Use 'to', 'subject', 'body'.\n"
             "- calendar_op: Use 'summary', 'start'.\n"
             "- pdf_op: sub_action ('merge', 'split', 'extract_text', 'replace_text', 'create'). Use 'source', 'output_name', 'pages', 'search', 'replace', 'content'.\n"
@@ -292,6 +309,8 @@ class Config:
             "- whatsapp_op: Use 'contact' and 'message'.\n"
             "  * sub_action='send'. Use this to literally SEND a message to someone on WhatsApp.\n"
             "  * sub_action='monitor' or 'chat'. Use this to just OPEN the chat window.\n"
+            "  * sub_action='call'. Use this to start a WhatsApp Web call for a contact. Optional: video=true for video call.\n"
+            "  * sub_action='answer'. Use this to answer an incoming WhatsApp Web call.\n"
             "  * CRITICAL: If user asks you to 'tell X something', 'talk to X', or 'message X', USE THIS TOOL. DO NOT say you cannot send messages.\n"
             "- instagram_op: Use 'username' and 'message' (if sending).\n"
             "  * sub_action='authenticate'. Run this ONCE if the user asks you to log into Instagram.\n"
@@ -318,6 +337,7 @@ class Config:
             "2. NEVER say 'I cannot send messages on WhatsApp'. YOU CAN. Use whatsapp_op(sub_action='send'). NEVER roleplay the chat in the terminal instead.\n"
             "3. For 'play music/videos', ALWAYS use youtube_op. NEVER use web_search, launch_app, or execute_command to open a browser.\n"
             "4. For WhatsApp, ALWAYS use whatsapp_op. NEVER check for running browsers or try to launch edge/chrome manually.\n"
+            "   NEVER launch mobile URI schemes like 'whatsapp:' for calls. Use whatsapp_op(sub_action='call'|'answer') so Playwright controls WhatsApp Web.\n"
             "5. Verify tools exist before planning."
         )
 

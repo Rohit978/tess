@@ -74,9 +74,9 @@ class Brain:
                     if json_mode and "json" not in prompt.lower(): 
                         prompt += "\nOutput strict JSON."
                     
-                    # Bypass standard safety rails for TESS personality tuning (Rogue Mode)
-                    # OR when Autonomous Coding is enabled
-                    if self.personality == "rogue" or Config.AUTONOMOUS_CODING:
+                    # Only disable safety rails for the explicit "rogue" persona.
+                    # Autonomous coding mode does NOT need content filters removed.
+                    if self.personality == "rogue":
                         safety_settings = [
                             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -170,22 +170,17 @@ class Brain:
             except:
                 pass
 
-            # 3. Regex Fallback (Find first valid JSON object structure)
-            match = re.search(r"(\{.*?\})", clean, re.DOTALL) 
-            if match: 
+            # 3. Brace-counting fallback — walks the string to find the full JSON object
+            start_idx = clean.find('{')
+            if start_idx != -1:
                 try:
-                    # Often the non-greedy match stops too early for nested objects
-                    # Let's try to find matching braces
                     brace_count = 0
-                    start_idx = clean.find('{')
-                    if start_idx != -1:
-                        for i in range(start_idx, len(clean)):
-                            if clean[i] == '{': brace_count += 1
-                            elif clean[i] == '}': brace_count -= 1
-                            
-                            if brace_count == 0:
-                                return json.loads(clean[start_idx:i+1])
-                except:
+                    for i in range(start_idx, len(clean)):
+                        if clean[i] == '{': brace_count += 1
+                        elif clean[i] == '}': brace_count -= 1
+                        if brace_count == 0:
+                            return json.loads(clean[start_idx:i+1])
+                except Exception:
                     pass
             
             # 4. Last Resort: Auto-correct common LLM mistakes
@@ -198,17 +193,23 @@ class Brain:
             return {"action": "reply_op", "content": text}
 
     def _maybe_distill_context(self):
-        if len(self.history) < 100: return
-        logger.info("Distilling history...")
-        
+        # Trim aggressively at 80 messages to stay within token budget.
+        # Distillation builds a summary and compresses history.
+        if len(self.history) < 80: return
+        logger.info("Distilling history (reached 80-message budget)...")
+
         summary = self.request_completion(
-            self.history + [{"role": "user", "content": "Summarize key facts concisely."}], 
+            self.history + [{"role": "user", "content": "Summarize key facts concisely."}],
             temperature=0.3
         )
-        
+
         if summary:
             if self.memory: self.memory.store_memory(f"Context: {summary}")
             self.history = [self.history[0], {"role": "system", "content": f"[SUMMARY]\n{summary}"}] + self.history[-8:]
+        else:
+            # Fallback: hard-trim to last 20 exchanges if summarization failed
+            logger.warning("Distillation failed — hard-trimming to last 20 messages.")
+            self.history = [self.history[0]] + self.history[-20:]
 
     def _enrich_context(self, query):
         if len(query) < 4: return
