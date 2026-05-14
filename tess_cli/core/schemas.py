@@ -36,9 +36,10 @@ class DesktopVisionAction(BaseAction):
     action: L["desktop_vision_op"]
     sub_action: L[
         "list_apps", "active_app", "focus_app", "screenshot", "click", "type", "hotkey",
-        "hide_app", "show_app", "list_hidden_apps"
+        "hide_app", "show_app", "list_hidden_apps",
+        "analyze", "look"  # Vision: screenshot + LLM analysis
     ]
-    query: Optional[str] = None
+    query: Optional[str] = None   # What to ask about the screen
     app_name: Optional[str] = None
     title: Optional[str] = None
     limit: int = 20
@@ -253,6 +254,12 @@ class CodingModeAction(BaseAction):
 class ErrorAction(BaseAction):
     action: L["error"]
 
+class ReviewAction(BaseAction):
+    action: L["review_op"]
+    sub_action: L["file", "diff", "directory"]
+    path: Optional[str] = None
+    content: Optional[str] = None
+
 
 # Master Union
 TessAction = Union[
@@ -263,5 +270,5 @@ TessAction = Union[
     CalendarAction, CoderAction, GmailAction, MemoryAction, ReplyAction,
     TeachSkillAction, RunSkillAction, TripPlannerAction, ResearchAction,
     ConverterAction, SysAdminAction, PDFOpAction, PresentationOpAction, 
-    BroadcastAction, DesignAction, PentestAction, RAGAction, CodingModeAction
+    BroadcastAction, DesignAction, PentestAction, RAGAction, CodingModeAction, ReviewAction
 ]

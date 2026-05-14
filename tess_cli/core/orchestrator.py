@@ -148,6 +148,23 @@ class ActionDispatcher:
             return out(dv.focus_app(target), self.output_handler)
         if sub == "screenshot":
             return out(dv.screenshot(filename=data.get("filename")), self.output_handler)
+        if sub in ("analyze", "look"):
+            # 1. Take a fresh screenshot of the entire desktop
+            import time as _time
+            snap_name = f"vision_{int(_time.time())}.png"
+            snap_path_msg = dv.screenshot(filename=snap_name)
+            # Resolve the actual file path from the saved message
+            snap_path = os.path.join(dv.snapshot_dir, snap_name)
+            if not os.path.exists(snap_path):
+                return out(f"Analyze Error: screenshot failed — {snap_path_msg}", self.output_handler)
+            # 2. Ask the vision LLM to describe/analyze it
+            query = data.get("query") or "Describe everything you see on this screen in detail."
+            out(f"Analyzing screen with vision model...", self.output_handler)
+            analysis = self.brain.request_vision(snap_path, query)
+            # 3. Feed result back into conversation history
+            self.brain.update_history("user", f"[SCREEN CAPTURE] Query: {query}")
+            self.brain.update_history("assistant", f"[VISION RESULT] {analysis}")
+            return out(analysis, self.output_handler)
         if sub == "click":
             return out(dv.click(data.get("x"), data.get("y")), self.output_handler)
         if sub == "type":
@@ -585,6 +602,26 @@ class ActionDispatcher:
         
         if sub in cmds:
             out(f"Git: {sub}", self.output_handler)
+            
+            # --- Auto-Review Hook before Commit ---
+            if sub == "commit" and "review_op" in self.skill_registry:
+                out("\n[TESS REVIEW] Running pre-commit AI code review...", self.output_handler)
+                diff_out = exe.execute_command("git diff --cached")
+                if not diff_out.strip() or "ERROR:" in diff_out:
+                    diff_out = exe.execute_command("git diff")
+                
+                if diff_out.strip() and "ERROR:" not in diff_out:
+                    try:
+                        review_result = self.skill_registry["review_op"].execute(
+                            {"sub_action": "diff", "content": diff_out}, 
+                            {"components": self.components, "output_handler": self.output_handler}
+                        )
+                        # We just display it and proceed. In a stricter setup, we could block it.
+                        out(f"\n[PRE-COMMIT REVIEW FINDINGS]\n{review_result}\n", self.output_handler)
+                    except Exception as e:
+                        out(f"Auto-review failed: {e}", self.output_handler)
+            # ---------------------------------------
+
             return f"{exe.execute_command(cmds[sub])}"
 
     # --- Skill & Planning Handlers ---

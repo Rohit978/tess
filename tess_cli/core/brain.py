@@ -5,6 +5,7 @@ import time
 import warnings
 import logging
 import random
+from pathlib import Path
 
 # Suppress warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -53,6 +54,66 @@ class Brain:
 
     def update_history(self, role, content):
         self.history.append({"role": role, "content": content})
+
+    def request_vision(self, image_path: str, prompt: str) -> str:
+        """
+        Send a screenshot/image to the vision-capable LLM and return its analysis.
+        Supports Gemini (natively multimodal) and OpenAI-compatible vision models.
+
+        Args:
+            image_path: Absolute path to the screenshot PNG/JPG file.
+            prompt: What to ask about the image.
+
+        Returns:
+            str: The model's plain-text description/analysis of the image.
+        """
+        if not os.path.exists(image_path):
+            return f"Vision Error: Screenshot file not found: {image_path}"
+
+        client, err = self._get_client()
+        if not client:
+            return f"Vision Error: Could not init LLM client: {err}"
+
+        try:
+            if self.provider == "gemini":
+                # Gemini natively handles PIL images
+                try:
+                    from PIL import Image as PILImage
+                    img = PILImage.open(image_path)
+                except ImportError:
+                    # Fall back to raw bytes if Pillow not installed
+                    with open(image_path, "rb") as f:
+                        img = {"mime_type": "image/png", "data": f.read()}
+                response = client.generate_content([prompt, img])
+                return response.text
+
+            elif self.provider in ("openai", "groq", "deepseek"):
+                import base64
+                with open(image_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("utf-8")
+                ext = Path(image_path).suffix.lower().lstrip(".")
+                mime = "image/png" if ext in ("png", "") else f"image/{ext}"
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                        ],
+                    }
+                ]
+                completion = client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=1024,
+                    temperature=0.3,
+                )
+                return completion.choices[0].message.content
+            else:
+                return f"Vision Error: Provider '{self.provider}' does not support vision."
+        except Exception as e:
+            logger.error(f"Vision API Error: {e}")
+            return f"Vision Error: {e}"
 
     def _get_client(self):
         key = Config.get_api_key(self.provider, index=self.current_key_index)
