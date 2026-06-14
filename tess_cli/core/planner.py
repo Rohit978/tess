@@ -21,7 +21,7 @@ class Planner:
         
         desktop_path = Config.get_desktop_path()
         downloads_path = Config.get_downloads_path()
-        docs_path = Config.get_documents_path()
+        docs_path = os.path.join(os.path.expanduser('~'), 'Documents')
         
         prompt = f"""
         You are the STRATEGIC PLANNER for TESS.

@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 
 class Executor:
     """Shell command execution with safety rails."""
@@ -12,8 +13,13 @@ class Executor:
         print(f"\n[TESS] > {command}")
 
         if self.safe_mode:
-            if input("Run? (Y/n): ").strip().lower() not in ['y', 'yes', 'ok', '']:
-                return "Cancelled."
+            if sys.stdin.isatty():
+                confirm = input("Run? (Y/n): ").strip().lower()
+                if confirm not in ['y', 'yes', 'ok', '']:
+                    return "Cancelled."
+            else:
+                # Non-interactive: auto-approve in safe mode
+                pass
 
         try:
             # Always route through PowerShell as an argv list (shell=False).

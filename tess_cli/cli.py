@@ -62,7 +62,18 @@ from .skills.presentation_skill import PresentationSkill
 logger = setup_logger("Main")
 
 def start_telegram_bot(profiles, components, screencast=None):
-    """Runs the Telegram Bot in a separate thread with capped retries."""
+    """Runs the Telegram Bot in a separate thread — completely silent."""
+    import asyncio
+    import gc
+
+    # Silence ALL noise from this background thread
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*coroutine.*was never awaited.*")
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*Enable tracemalloc.*")
+
+    # Mute telegram, httpx, and httpcore loggers so network errors never hit the terminal
+    for noisy in ("telegram", "telegram.ext", "httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.CRITICAL)
+
     try:
         from .interfaces.telegram_bot import TessBot
         valid_comps = {k: v for k, v in components.items() if v is not None}
@@ -82,24 +93,42 @@ def start_telegram_bot(profiles, components, screencast=None):
             screencast=screencast
         )
 
-        MAX_RETRIES = 10
+        MAX_RETRIES = 3
         for attempt in range(1, MAX_RETRIES + 1):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             try:
                 bot.run()
-                break  # Normal exit
+                break
             except Exception as loop_e:
-                wait = min(10 * attempt, 300)  # Exponential cap at 5 min
-                logger.error(
-                    f"Telegram Bot failed (attempt {attempt}/{MAX_RETRIES}): {loop_e}. "
-                    f"Retrying in {wait}s..."
-                )
-                if attempt >= MAX_RETRIES:
-                    logger.error("Telegram Bot: max retries reached. Giving up.")
+                err_str = str(loop_e).lower()
+                logger.debug(f"Telegram Bot silent fail (attempt {attempt}/{MAX_RETRIES}): {loop_e}")
+                
+                if any(fatal in err_str for fatal in ["unauthorized", "invalid token", "loop is closed"]):
                     break
-                time.sleep(wait)
 
-    except Exception as e:
-        logger.error(f"Telegram Bot initialization failed: {e}")
+                if attempt >= MAX_RETRIES:
+                    break
+
+                time.sleep(min(10 * attempt, 60))
+            finally:
+                try:
+                    pending = asyncio.all_tasks(loop)
+                    for task in pending:
+                        task.cancel()
+                    if pending:
+                        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        loop.close()
+                    except Exception:
+                        pass
+                gc.collect()
+
+    except Exception:
+        pass  # Silent — never pollute the terminal
 
 def main():
     # Fast Exit for Init
@@ -277,6 +306,16 @@ def main():
 
     TessScheduler(brain=brain).start()
 
+    # Start Visual Timeline (every 60 seconds)
+    timeline = None
+    try:
+        from .core.visual_timeline import VisualTimelineTracker
+        timeline = VisualTimelineTracker(brain, knowledge_db)
+        timeline.start()
+        print_info("Visual Timeline active.")
+    except Exception as e:
+        logger.error(f"Failed to start Visual Timeline: {e}")
+
     if Config.TELEGRAM_BOT_TOKEN:
         print_info("Starting Telegram Bot...")
         # Get Screencast from loader if available
@@ -351,6 +390,16 @@ def main():
                 print_error(f"Error: {e}")
                 logger.error(e, exc_info=True)
     finally:
+        if 'brain' in locals() and brain:
+            try:
+                brain.summarize_and_save_session()
+            except Exception as e:
+                logger.error(f"Failed to summarize session on shutdown: {e}", exc_info=True)
+        if 'timeline' in locals() and timeline:
+            try:
+                timeline.stop()
+            except Exception as e:
+                logger.error(f"Failed to stop Visual Timeline on shutdown: {e}")
         if terminal_visibility:
             terminal_visibility.stop()
 

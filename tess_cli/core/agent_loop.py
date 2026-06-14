@@ -7,6 +7,20 @@ class AgenticLoop:
     """
     Manages the multi-step reasoning capabilities of TESS.
     """
+    # All recognized action types — anything outside this set is an LLM hallucination
+    KNOWN_ACTIONS = {
+        "reply_op", "final_reply", "error",
+        "execute_command", "launch_app", "system_control", "sysadmin_op",
+        "web_search_op", "web_op", "file_op", "code_op",
+        "youtube_op", "whatsapp_op", "broadcast_op", "instagram_op",
+        "desktop_vision_op", "dom_op", "hearing_op", "os_op",
+        "design_op", "pdf_op", "converter_op",
+        "gmail_op", "calendar_op", "vault_op", "memory_op", "git_op",
+        "planner_op", "run_skill", "teach_skill", "coding_mode_op",
+        "presentation_op", "pentest_op", "rag_op", "review_op",
+        "experimental_op", "trip_planner_op", "screencast_op",
+    }
+
     def __init__(self, brain, components, max_steps=10, max_replans=3):
         self.brain = brain
         self.components = components
@@ -21,6 +35,32 @@ class AgenticLoop:
         action = action_data.get("action")
         if not action:
             return False, "Missing 'action' field."
+
+        # Guard: LLM sometimes returns nested objects instead of a string action
+        if not isinstance(action, str):
+            action_data["action"] = "reply_op"
+            action_data.setdefault("content", str(action))
+            return True, "Coerced non-string action to reply_op."
+
+        # Guard: Coerce unknown/hallucinated action names to reply_op
+        # Check both the hardcoded set AND the dynamic skill registry
+        skill_registry = self.components.get("skill_registry", {})
+        if action not in self.KNOWN_ACTIONS and action not in skill_registry:
+            # Salvage conversational content: scan ALL string values, pick the longest
+            # The LLM uses random field names like 'greeting', 'response_text', 'output', etc.
+            skip_keys = {"action", "thought"}
+            best = ""
+            for k, v in action_data.items():
+                if k in skip_keys or not isinstance(v, str):
+                    continue
+                if len(v) > len(best):
+                    best = v
+            # Fall back to thought if no content found anywhere else
+            if not best:
+                best = action_data.get("thought", "")
+            action_data["action"] = "reply_op"
+            action_data["content"] = best
+            return True, f"Coerced unknown action '{action}' to reply_op."
 
         required_fields = {
             "execute_command": ["command", "content"],
@@ -54,18 +94,14 @@ class AgenticLoop:
         return True, "Action payload valid."
 
     def _result_suggests_failure(self, result):
+        import re
         text = str(result).lower()
-        failure_markers = [
-            "error",
-            "failed",
-            "timed out",
-            "unknown",
-            "not found",
-            "blocked",
-            "unavailable",
-            "disabled",
+        failure_patterns = [
+            r'\berror\b', r'\bfailed\b', r'\btimed out\b',
+            r'\bnot found\b', r'\bblocked\b', r'\bunavailable\b',
+            r'\bdisabled\b',
         ]
-        return any(marker in text for marker in failure_markers)
+        return any(re.search(p, text) for p in failure_patterns)
 
     def run(self, user_query):
         original_query = user_query  # Preserve original intent; never mutate this
@@ -101,7 +137,7 @@ class AgenticLoop:
                 clear_thinking()
 
                 # Parse
-                if isinstance(response, list): response = response[0]
+                if isinstance(response, list): response = response[0] if response else {"action": "reply_op", "content": "I couldn't generate a response."}
                 if not isinstance(response, dict):
                     response = {"action": "reply_op", "content": str(response)}
 
@@ -142,6 +178,18 @@ class AgenticLoop:
                 # Execute terminal actions (after security check above)
                 terminal_actions = ["final_reply", "reply_op", "whatsapp_op", "youtube_op", "broadcast_op", "instagram_op"]
                 if action in terminal_actions:
+                    # Guard: if reply content is empty, re-try instead of printing a blank bubble
+                    if action in ("reply_op", "final_reply") and not (response.get("content") or "").strip():
+                        replans += 1
+                        self.brain.update_history(
+                            "system",
+                            "Your last response had empty content. Reply using: "
+                            '{"action": "reply_op", "content": "your message here"}'
+                        )
+                        if replans > self.max_replans:
+                            print_error("Agent stopped: too many empty replies.")
+                            break
+                        continue
                     if action not in ["final_reply", "reply_op"]:
                         print_tess_action(f"Executing {action}...")
                     process_action(response, self.components, self.brain)
@@ -163,6 +211,7 @@ class AgenticLoop:
                         break
                 else:
                     # Feed result back as context without mutating the original query
+                    self.brain.update_history("system", f"Result of {action}: {str(res)[:500]}")
                     reflections.append(f"Completed '{action}' successfully.")
                 time.sleep(0.5)
 

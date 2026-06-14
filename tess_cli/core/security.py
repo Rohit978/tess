@@ -1,5 +1,6 @@
 from .logger import setup_logger
 import re
+import os
 
 logger = setup_logger("SecurityEngine")
 
@@ -25,11 +26,12 @@ class SecurityEngine:
         
         # Sensitive Paths Blacklist
         self.sensitive_paths = [
-            r"C:\\Windows",
-            r"C:\\Program Files",
-            r"C:\\Users\\[^\\]+\\AppData", # AppData usually hidden/system
-            r"System32",
+            "C:\\Windows",
+            "C:\\Program Files",
+            "C:\\Users",  # AppData check below
+            "System32",
         ]
+        self.sensitive_path_pattern_appdata = re.compile(r"C:\\Users\\[^\\]+\\AppData", re.IGNORECASE)
 
     def validate_action(self, action_dict):
         """
@@ -40,7 +42,7 @@ class SecurityEngine:
         
         # 1. Execute Command Validation
         if action_type == "execute_command":
-            cmd = action_dict.get("command", "").lower()
+            cmd = str(action_dict.get("command", "")).lower()
             
             # Check Dangerous Patterns
             for pattern in self.dangerous_patterns:
@@ -49,8 +51,11 @@ class SecurityEngine:
             
             # Check Sensitive Paths
             for path in self.sensitive_paths:
-                if path.lower() in cmd:
+                if os.path.normpath(path).lower() in os.path.normpath(cmd).lower():
                     return False, f"Blocked Access to Sensitive Path: {path}"
+            # Check AppData pattern
+            if self.sensitive_path_pattern_appdata.search(cmd):
+                return False, "Blocked Access to Sensitive Path: AppData"
             
             # High Security: Block significant file modifications
             if self.level == "HIGH" and any(x in cmd for x in [">", ">>", "write", "set-content"]):
@@ -64,8 +69,10 @@ class SecurityEngine:
             if sub_action in ["write", "patch", "delete"]:
                  # Check Sensitive Paths
                 for sp in self.sensitive_paths:
-                    if sp.lower() in path.lower():
+                    if os.path.normpath(sp).lower() in os.path.normpath(path).lower():
                         return False, f"Blocked Write/Delete on Sensitive Path: {sp}"
+                if self.sensitive_path_pattern_appdata.search(path):
+                    return False, "Blocked Write/Delete on Sensitive Path: AppData"
 
         # 3. System Control Validation
         elif action_type == "system_control":

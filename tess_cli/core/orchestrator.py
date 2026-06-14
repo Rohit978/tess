@@ -42,6 +42,13 @@ class ActionDispatcher:
         if not action_type:
             return out("Error: No action type specified.", self.output_handler)
 
+        # Guard: Coerce non-string action values (e.g. nested dicts from LLM hallucination)
+        if not isinstance(action_type, str):
+            logger.warning(f"Non-string action type received: {type(action_type).__name__}. Coercing to reply_op.")
+            action_data["action"] = "reply_op"
+            action_data.setdefault("content", str(action_type))
+            action_type = "reply_op"
+
         # 1. Check Dynamic Skills First
         if action_type in self.skill_registry:
             skill = self.skill_registry[action_type]
@@ -76,12 +83,14 @@ class ActionDispatcher:
     # --- Core Interaction Handlers ---
 
     def _handle_reply_op(self, data):
-        content = data.get("content", "")
+        content = data.get("content", "").strip()
+        if not content:
+            return "Empty reply suppressed."
         if self.output_handler:
             try: self.output_handler(content)
             except Exception as e: logger.debug(f"Reply output handler error: {e}")
         print_tess_message(content)
-        return f"Replied: {content[:50]}..."
+        return f"Replied: {content}"
 
     def _handle_final_reply(self, data):
         content = data.get("content", "")
@@ -624,6 +633,65 @@ class ActionDispatcher:
 
             return f"{exe.execute_command(cmds[sub])}"
 
+        return out(f"Unknown git sub_action: {sub}", self.output_handler)
+    def _handle_os_op(self, data):
+        """
+        OS-level UI automation — like dom_op for native Windows apps.
+        Uses Windows UI Automation (UIA) via pywinauto with vision fallback.
+        """
+        # Lazy-init OSController (stored in components for reuse)
+        os_ctrl = self.components.get("os_controller")
+        if not os_ctrl:
+            try:
+                from .os_controller import OSController
+                os_ctrl = OSController(brain=self.brain)
+                self.components["os_controller"] = os_ctrl
+            except ImportError as e:
+                return out(
+                    f"os_op unavailable: pywinauto not installed. Run: pip install pywinauto\n{e}",
+                    self.output_handler
+                )
+
+        sub    = data.get("sub_action", "")
+        query  = data.get("query")
+        app    = data.get("app")          # None = active window
+        text   = data.get("text")
+        ctype  = data.get("control_type")
+        path   = data.get("path")
+        depth  = int(data.get("max_depth", 4))
+
+        out(f"OS {sub}: {query or path or app or '(active window)'}", self.output_handler)
+
+        if sub == "find":
+            if not query:
+                return out("os_op(find) requires 'query'.", self.output_handler)
+            return out(os_ctrl.find(query, app=app, control_type=ctype), self.output_handler)
+
+        elif sub == "click":
+            if not query:
+                return out("os_op(click) requires 'query'.", self.output_handler)
+            return out(os_ctrl.click(query, app=app, control_type=ctype), self.output_handler)
+
+        elif sub == "type":
+            if not query:
+                return out("os_op(type) requires 'query' (the field to type into).", self.output_handler)
+            if not text:
+                return out("os_op(type) requires 'text'.", self.output_handler)
+            return out(os_ctrl.type(query, text, app=app), self.output_handler)
+
+        elif sub == "read":
+            return out(os_ctrl.read(query=query, app=app), self.output_handler)
+
+        elif sub == "get_tree":
+            return out(os_ctrl.get_tree(app=app, max_depth=depth), self.output_handler)
+
+        elif sub == "menu":
+            if not path:
+                return out("os_op(menu) requires 'path', e.g. 'File->Save As'.", self.output_handler)
+            return out(os_ctrl.menu(path, app=app), self.output_handler)
+
+        return out(f"Unknown os_op sub_action: '{sub}'", self.output_handler)
+
     # --- Skill & Planning Handlers ---
 
     def _handle_planner_op(self, data):
@@ -663,7 +731,33 @@ class ActionDispatcher:
 
     def _handle_unknown(self, data):
         """Fallback for unhandled actions."""
-        action = data.get('action', 'unknown')
+        action = str(data.get('action', 'unknown')).lower()
+        
+        # Match broad conversational indicators in action name
+        conv_words = ["conversation", "greet", "talk", "chat", "say", "rapport", "interest", 
+                      "clarif", "message", "reply", "respond", "ask", "greeting"]
+        
+        # Match common conversational payload keys
+        conv_keys = {"content", "text", "message", "reply", "response", "query", "msg", "value"}
+        
+        is_conversational = (
+            any(w in action for w in conv_words) or 
+            any(k in data for k in conv_keys)
+        )
+        
+        if is_conversational:
+            logger.info(f"Re-routing conversational action '{action}' to reply_op to prevent looping warnings.")
+            data["action"] = "reply_op"
+            if "content" not in data:
+                # Find the most conversational parameter available
+                for k in ["content", "text", "message", "reply", "response", "query", "msg", "value"]:
+                    if k in data:
+                        data["content"] = data[k]
+                        break
+                else:
+                    data["content"] = ""
+            return self._handle_reply_op(data)
+
         msg = f"I don't know how to handle '{action}' yet."
         out(msg, self.output_handler)
         logger.warning(f"Unhandled action: {action}")

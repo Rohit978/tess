@@ -39,8 +39,20 @@ class MemoryEngine:
 
     def _save_memory(self):
         try:
-            with open(self.memory_file, 'w') as f:
-                json.dump(self.memories, f, indent=2)
+            import tempfile
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                dir=os.path.dirname(self.memory_file), suffix='.tmp'
+            )
+            try:
+                with os.fdopen(tmp_fd, 'w') as f:
+                    json.dump(self.memories, f, indent=2)
+                os.replace(tmp_path, self.memory_file)
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
         except Exception as e:
             logger.error(f"Failed to save memory: {e}")
 

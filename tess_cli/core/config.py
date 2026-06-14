@@ -55,7 +55,8 @@ class Config:
                 "groq": [],
                 "openai": [],
                 "deepseek": [],
-                "gemini": []
+                "gemini": [],
+                "ollama": []
             }
         },
         "security": {
@@ -192,6 +193,7 @@ class Config:
         add_key("openai", "OPENAI_API_KEY")
         add_key("gemini", "GEMINI_API_KEY")
         add_key("deepseek", "DEEPSEEK_API_KEY")
+        add_key("ollama", "OLLAMA_API_KEY")
 
         # Provider fallback
         if cls._data["llm"]["provider"] == "groq" and not cls._data["llm"]["keys"]["groq"]:
@@ -338,6 +340,18 @@ class Config:
             "  * Indexes local documents (PDF, TXT, MD, DOCX) into a vector database for semantic search.\n"
             "- coding_mode_op: sub_action ('enter'). Optional 'path' to specify workspace directory.\n"
             "  * Enters an interactive coding agent mode (like Claude Code). Use when the user wants to do complex multi-step coding work.\n"
+            "- os_op: sub_action ('find', 'click', 'type', 'read', 'get_tree', 'menu').\n"
+            "  * Like dom_op but for NATIVE WINDOWS APPS. Uses Windows UI Automation (UIA) to control any app.\n"
+            "  * 'query' = the UI element to find by its visible label/name. 'app' = window title (omit to use active window).\n"
+            "  * find: locate and describe a UI element. click: click it. type: type 'text' into it.\n"
+            "  * read: read all text from a window or specific element. get_tree: list all UI elements (like DevTools).\n"
+            "  * menu: navigate a menu path, e.g. path='File->Save As'.\n"
+            "  * Automatically falls back to vision AI if the element isn't in the UIA tree (Electron, games, etc.).\n"
+            "  * Examples:\n"
+            "    - 'click OK in the dialog' → os_op(sub_action='click', query='OK')\n"
+            "    - 'type my name in the name field' → os_op(sub_action='type', query='Name', text='Rohit')\n"
+            "    - 'what buttons are in VS Code?' → os_op(sub_action='get_tree', app='Visual Studio Code')\n"
+            "    - 'click File then Save' → os_op(sub_action='menu', path='File->Save')\n"
             "\n"
             "STRICT OPERATIONAL RULES (OVERRIDES ALL ABOVE):\n"
             "1. JSON ONLY. No preamble.\n"

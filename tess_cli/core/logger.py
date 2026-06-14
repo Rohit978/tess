@@ -11,8 +11,9 @@ def setup_logger(name="TESS", level=logging.WARNING):
         
     fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     
-    # Console
+    # Console — only show ERROR and above to keep terminal clean
     ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.ERROR)
     ch.setFormatter(fmt)
     logger.addHandler(ch)
     

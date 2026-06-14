@@ -260,6 +260,17 @@ class ReviewAction(BaseAction):
     path: Optional[str] = None
     content: Optional[str] = None
 
+class OSAction(BaseAction):
+    """OS-level UI automation — like dom_op but for native Windows apps."""
+    action: L["os_op"]
+    sub_action: L["find", "click", "type", "read", "get_tree", "menu"]
+    query: Optional[str] = None          # Element to find (by visible name/label)
+    app: Optional[str] = None            # Target window title — defaults to active window
+    text: Optional[str] = None           # Text to type (sub_action='type')
+    control_type: Optional[str] = None   # UIA hint: Button, Edit, CheckBox, etc.
+    path: Optional[str] = None           # Menu path for sub_action='menu', e.g. 'File->Save'
+    max_depth: int = 4                   # Tree depth for sub_action='get_tree'
+
 
 # Master Union
 TessAction = Union[
@@ -270,5 +281,6 @@ TessAction = Union[
     CalendarAction, CoderAction, GmailAction, MemoryAction, ReplyAction,
     TeachSkillAction, RunSkillAction, TripPlannerAction, ResearchAction,
     ConverterAction, SysAdminAction, PDFOpAction, PresentationOpAction, 
-    BroadcastAction, DesignAction, PentestAction, RAGAction, CodingModeAction, ReviewAction
+    BroadcastAction, DesignAction, PentestAction, RAGAction, CodingModeAction, ReviewAction,
+    OSAction
 ]

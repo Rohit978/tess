@@ -167,6 +167,8 @@ def get_prompt():
     """Cyberpunk prompt."""
     return f"\n[bold bright_cyan]❯[/bold bright_cyan] [bold white]USER[/bold white] [dim]>>[/dim] "
 
+_thinking_spinner = None
+
 def print_thinking(msg="Thinking..."):
     global _thinking_spinner
     
@@ -286,3 +288,57 @@ def print_goodbye(name="User"):
 def print_fact_learned(facts):
     for f in facts:
         console.print(f"  [dim cyan]🧠 Memory Updated:[/dim cyan] {f}")
+
+def print_cognitive_flow(query, layer, details=None):
+    """
+    Renders a stunning terminal-based flowchart of TESS's cognitive routing decision.
+    Shows the active layer, processing speed, and execution path.
+    """
+    if Config.get_ui_mode() == "minimal":
+        return
+        
+    title = "[bold magenta]◆ COGNITIVE PATHWAY VISUALIZER[/bold magenta]"
+    
+    # Layer specific styling
+    if layer == "reflex":
+        layer_display = "[bold green]REFLEX LAYER (Deterministic Bypass)[/bold green]"
+        speed = "⚡ <1ms [Instant]"
+        flow_path = "[cyan]User Query[/cyan] ──▶ [magenta]Cognitive Router[/magenta] ──▶ [green]ReflexBrain[/green] ──▶ [yellow]Direct OS Action[/yellow]"
+        extra_info = "LLM inference skipped entirely. Direct execution pattern matched."
+    elif layer == "habit":
+        layer_display = "[bold bright_cyan]HABIT LAYER (Cached Procedural Skill)[/bold bright_cyan]"
+        speed = "⚡ <1ms [Compiled]"
+        flow_path = "[cyan]User Query[/cyan] ──▶ [magenta]Cognitive Router[/magenta] ──▶ [bright_cyan]HabitBrain[/bright_cyan] ──▶ [yellow]Compiled Skill Graph[/yellow]"
+        
+        habit_name = details.get("name") if isinstance(details, dict) else "unknown"
+        steps_count = len(details.get("steps", [])) if isinstance(details, dict) else 0
+        extra_info = f"Executing cached workflow graph: [bold magenta]'{habit_name}'[/bold magenta] ({steps_count} pre-compiled steps)."
+    elif layer == "planner":
+        layer_display = "[bold bright_magenta]PLANNER LAYER (Strategic Decomposition)[/bold bright_magenta]"
+        speed = "🐢 1.5s - 3.5s [Agentic Loops]"
+        flow_path = "[cyan]User Query[/cyan] ──▶ [magenta]Cognitive Router[/magenta] ──▶ [bright_magenta]PlannerBrain[/bright_magenta] ──▶ [yellow]Task Registry & Agent Loop[/yellow]"
+        extra_info = "Loaded structured user profile facts + semantic vector database context."
+    else: # reasoner
+        layer_display = "[bold yellow]DEEP REASONER LAYER (Conversational & Complex)[/bold yellow]"
+        speed = "🐢 2.0s - 4.5s [Deep Thought]"
+        flow_path = "[cyan]User Query[/cyan] ──▶ [magenta]Cognitive Router[/magenta] ──▶ [yellow]TaskBrain[/yellow] ──▶ [bright_magenta]LLM Reasoning Core[/bright_magenta]"
+        extra_info = "Engaging core thinking pathways with episodic context loading and active safety validation."
+
+    # Assemble visual table or panel
+    table = Table(box=box.SIMPLE, show_header=False, expand=True)
+    table.add_row("[bold white]Query:[/bold white]", f"[dim italic]\"{query}\"[/dim italic]")
+    table.add_row("[bold white]Active Brain:[/bold white]", layer_display)
+    table.add_row("[bold white]Cognitive Latency:[/bold white]", speed)
+    table.add_row("[bold white]Information Flow:[/bold white]", flow_path)
+    if extra_info:
+        table.add_row("[bold white]Diagnostics:[/bold white]", f"[dim]{extra_info}[/dim]")
+
+    panel = Panel(
+        table,
+        title=title,
+        title_align="left",
+        border_style="magenta",
+        box=box.ROUNDED,
+        padding=(0, 1)
+    )
+    console.print(panel)

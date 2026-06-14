@@ -498,6 +498,62 @@ async def stream_events(session_id: str) -> StreamingResponse:
 
     return StreamingResponse(generator(), media_type="text/event-stream")
 
+server_event_loop = None
+clipboard_monitor = None
+visual_timeline = None
+
+
+@app.on_event("startup")
+async def startup_event():
+    global server_event_loop, clipboard_monitor, visual_timeline
+    server_event_loop = asyncio.get_running_loop()
+
+    # Start Clipboard Sync Monitor
+    def on_clipboard_changed(text):
+        if server_event_loop:
+            async def do_publish():
+                for session in list(sessions.values()):
+                    await _publish(session, "clipboard", {"text": text})
+            asyncio.run_coroutine_threadsafe(do_publish(), server_event_loop)
+
+    try:
+        from ..core.clipboard_sync import ClipboardSyncMonitor
+        clipboard_monitor = ClipboardSyncMonitor(on_clipboard_changed)
+        clipboard_monitor.start()
+    except Exception as e:
+        print(f"Failed to start Clipboard Monitor: {e}")
+
+    # Start Visual Timeline (every 60 seconds)
+    try:
+        from ..core.visual_timeline import VisualTimelineTracker
+        visual_timeline = VisualTimelineTracker(default_brain, knowledge_db)
+        visual_timeline.start()
+    except Exception as e:
+        print(f"Failed to start Visual Timeline: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global clipboard_monitor, visual_timeline
+    if clipboard_monitor:
+        clipboard_monitor.stop()
+    if visual_timeline:
+        visual_timeline.stop()
+
+
+class ClipboardRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/sessions/{session_id}/clipboard")
+async def receive_clipboard(session_id: str, request: ClipboardRequest) -> dict[str, Any]:
+    session = _get_session(session_id)
+    text = request.text
+    if clipboard_monitor:
+        clipboard_monitor.set_clipboard(text)
+    await _publish(session, "status", {"message": "Clipboard synced from mobile device."})
+    return {"ok": True}
+
 
 @app.get("/phone/{session_id}", response_class=HTMLResponse)
 async def phone_view(session_id: str):
@@ -514,7 +570,13 @@ button{{background:#2f81f7;color:white;border:0;border-radius:8px;padding:10px 1
 </style></head>
 <body>
 <div class="card"><b>TESS Live Feed</b><div class="muted">Session: {session_id}</div></div>
-<div class="card"><button id="reqScreen">Request laptop screen analysis</button></div>
+<div class="card"><button id="reqScreen" style="width:100%;">Request laptop screen analysis</button></div>
+<div class="card">
+  <b>Clipboard Sync</b>
+  <div id="pcClipboard" class="muted" style="background:#24292f; padding:8px; border-radius:6px; margin: 8px 0; word-break:break-all;">(no clipboard text)</div>
+  <textarea id="phoneClipboard" style="width:100%; box-sizing:border-box; background:#24292f; color:white; border:1px solid #30363d; border-radius:6px; padding:8px; margin-bottom:8px;" placeholder="Type text to send to PC clipboard..."></textarea>
+  <button id="sendClipboard" style="width:100%;">Send to PC Clipboard</button>
+</div>
 <div id="feed"></div>
 <script>
 const sid = {json.dumps(session_id)};
@@ -529,12 +591,23 @@ function add(title, text){{
 document.getElementById("reqScreen").onclick = async () => {{
   await fetch(`/api/sessions/${{sid}}/screen-request`, {{method:"POST"}});
 }};
+document.getElementById("sendClipboard").onclick = async () => {{
+  const txt = document.getElementById("phoneClipboard").value;
+  await fetch(`/api/sessions/${{sid}}/clipboard`, {{
+    method: "POST",
+    headers: {{ "Content-Type": "application/json" }},
+    body: JSON.stringify({{ text: txt }})
+  }});
+}};
 const es = new EventSource(`/api/sessions/${{sid}}/events`);
 es.onmessage = (m) => {{
   const ev = JSON.parse(m.data);
   if(ev.type === "answer") add("Answer", ev.payload?.answer || "");
   else if(ev.type === "transcript") add("Heard", ev.payload?.text || "");
   else if(ev.type === "status") add("Status", ev.payload?.message || "");
+  else if(ev.type === "clipboard") {{
+    document.getElementById("pcClipboard").textContent = ev.payload?.text || "";
+  }}
 }};
 </script></body></html>"""
     return HTMLResponse(content=html)

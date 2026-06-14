@@ -21,7 +21,8 @@ class SetupWizard:
                 "groq": [],
                 "openai": [],
                 "deepseek": [],
-                "gemini": []
+                "gemini": [],
+                "ollama": []
             }
 
     def _setup_personalization(self):
@@ -139,9 +140,10 @@ class SetupWizard:
         print("  [2] OpenAI (GPT-4 - Paid)")
         print("  [3] DeepSeek (Great for Coding)")
         print("  [4] Gemini (Google)")
+        print("  [5] Ollama (Local/Open Source)")
         
         choice = self._input("Choice", "1")
-        providers = {"1": "groq", "2": "openai", "3": "deepseek", "4": "gemini"}
+        providers = {"1": "groq", "2": "openai", "3": "deepseek", "4": "gemini", "5": "ollama"}
         provider = providers.get(choice, "groq")
         self.config["llm"]["provider"] = provider
         
@@ -191,6 +193,7 @@ class SetupWizard:
             default_model = "llama-3.3-70b-versatile"
             if provider == "openai": default_model = "gpt-4-turbo"
             elif provider == "deepseek": default_model = "deepseek-coder"
+            elif provider == "ollama": default_model = "llama3.2"
             
             self.config["llm"]["model"] = self._input(f"Primary {provider.title()} Model Name", default_model)
 

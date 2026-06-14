@@ -20,7 +20,7 @@ from .logger import setup_logger
 logger = setup_logger("CodingAgent")
 
 # Tools that are safe to auto-execute (no side effects)
-SAFE_TOOLS = {"read_file", "list_dir", "grep_search", "file_outline", "git_status", "git_diff", "write_analysis"}
+SAFE_TOOLS = {"read_file", "list_dir", "grep_search", "file_outline", "git_status", "git_diff", "write_analysis", "web_search", "fetch_url"}
 
 # Tools that require user permission (write/execute side effects)
 DANGEROUS_TOOLS = {"write_file", "edit_file", "run_command", "git_commit"}
@@ -66,7 +66,13 @@ AVAILABLE TOOLS (respond with exactly one tool call per message):
     Create a structured Markdown analysis/report file in the workspace.
     Use this for analyse/review/audit/summarize tasks. Safe — no permission needed.
 
-12. done(message)
+12. web_search(query)
+    Search the web for code reference, docs, error fixes, or information. Safe — no permission needed.
+
+13. fetch_url(url)
+    Fetch and extract cleaned, readable text content from a URL. Safe — no permission needed.
+
+14. done(message)
     Finish the task and show your final response to the user.
 
 RESPONSE FORMAT (strict JSON, no markdown wrapping):
@@ -286,6 +292,17 @@ class CodingAgent:
             # Execute the tool
             print_tool_call(tool, args)
             result = self._execute_tool(tool, args)
+
+            # Auto-verification hook for Python files
+            if tool in ("write_file", "edit_file") and isinstance(result, str) and result.startswith("✅"):
+                path = args.get("path", "")
+                if path.endswith(".py"):
+                    # Check compilation offline (fast)
+                    compile_cmd = f"python -m py_compile {path}"
+                    compile_res = self.tools.run_command(compile_cmd)
+                    if compile_res and compile_res != "(No output)":
+                        result += f"\n\n⚠️ AUTO-VERIFICATION WARNING: Your edit introduced compilation/syntax errors:\n{compile_res}\nSir, you MUST fix this compilation error in your next tool call before declaring the task done."
+
             print_tool_result(result, tool)
 
             # Feed result back to the LLM
@@ -345,6 +362,14 @@ class CodingAgent:
                 return self.tools.write_file(
                     args.get("filename", "analysis.md"),
                     args.get("content", "")
+                )
+            elif tool == "web_search":
+                return self.tools.web_search(
+                    args.get("query", "")
+                )
+            elif tool == "fetch_url":
+                return self.tools.fetch_url(
+                    args.get("url", "")
                 )
             else:
                 return f"Error: Unknown tool '{tool}'"

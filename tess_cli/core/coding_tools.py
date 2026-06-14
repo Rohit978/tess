@@ -97,7 +97,8 @@ class CodingTools:
     # ─── edit_file ────────────────────────────────────────────────────────
     def edit_file(self, path, search, replace):
         """
-        Surgical find-and-replace edit with whitespace-normalized fallback.
+        Surgical find-and-replace edit with high-tolerance whitespace normalization.
+        Ensures that indentation differences, spaces, and line endings do not break edits.
         Uses atomic write to prevent corruption.
         """
         abs_path = self._resolve(path)
@@ -110,23 +111,46 @@ class CodingTools:
         except Exception as e:
             return f"Error reading file: {e}"
 
-        # Attempt exact match first
-        if search in content:
-            new_content = content.replace(search, replace, 1)
+        # Normalize line endings
+        content_norm = content.replace("\r\n", "\n")
+        search_norm = search.replace("\r\n", "\n")
+        replace_norm = replace.replace("\r\n", "\n")
+
+        # 1. Attempt exact match first
+        if search_norm in content_norm:
+            new_content = content_norm.replace(search_norm, replace_norm, 1)
         else:
-            # Normalized whitespace matching
-            def normalize(text):
-                return "\n".join(line.rstrip() for line in text.strip().splitlines())
+            # 2. Try line-by-line whitespace-normalized sliding window match
+            def clean_line(line):
+                return re.sub(r'\s+', ' ', line.strip())
 
-            norm_search = normalize(search)
-            lines = content.splitlines()
-            search_lines = search.splitlines()
+            search_lines = [clean_line(l) for l in search_norm.splitlines() if l.strip()]
+            if not search_lines:
+                return "Error: Empty search query provided."
+
+            lines = content_norm.splitlines()
             match_found = False
+            search_len = len(search_norm.splitlines())
 
-            for i in range(len(lines) - len(search_lines) + 1):
-                window = "\n".join(lines[i:i + len(search_lines)])
-                if normalize(window) == norm_search:
-                    lines[i:i + len(search_lines)] = replace.splitlines()
+            # Look for a contiguous block of lines that match search_norm
+            for i in range(len(lines) - search_len + 1):
+                window = [clean_line(l) for l in lines[i:i + search_len]]
+                search_cleaned = [clean_line(l) for l in search_norm.splitlines()]
+                
+                if window == search_cleaned:
+                    # Found match! Keep the original indentation of the first line
+                    orig_indent = len(lines[i]) - len(lines[i].lstrip())
+                    indent_str = " " * orig_indent
+                    
+                    replacement_indented = []
+                    for rl in replace_norm.splitlines():
+                        if rl.strip():
+                            # Retain relative indentation but align to parent indent
+                            replacement_indented.append(indent_str + rl.lstrip())
+                        else:
+                            replacement_indented.append("")
+                            
+                    lines[i:i + search_len] = replacement_indented
                     new_content = "\n".join(lines)
                     if content.endswith("\n"):
                         new_content += "\n"
@@ -395,3 +419,27 @@ class CodingTools:
             return output if output else "Nothing to commit."
         except Exception as e:
             return f"Error: {e}"
+
+    # ─── web_search ───────────────────────────────────────────────────────
+    def web_search(self, query):
+        """Search the web for code reference, docs, error fixes, or information."""
+        try:
+            from .web_browser import WebBrowser
+            wb = WebBrowser()
+            logger.info(f"🌐 Coding agent web search: '{query}'")
+            return wb.search_google(query)
+        except Exception as e:
+            logger.error(f"Coding Agent web search error: {e}")
+            return f"Error executing web search: {e}"
+
+    # ─── fetch_url ────────────────────────────────────────────────────────
+    def fetch_url(self, url):
+        """Fetch and extract cleaned, readable text content from a URL."""
+        try:
+            from .web_browser import WebBrowser
+            wb = WebBrowser()
+            logger.info(f"📄 Coding agent fetching URL: {url}")
+            return wb.scrape_page(url)
+        except Exception as e:
+            logger.error(f"Coding Agent fetch URL error: {e}")
+            return f"Error fetching URL: {e}"
